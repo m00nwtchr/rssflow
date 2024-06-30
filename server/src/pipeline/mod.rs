@@ -1,5 +1,5 @@
 use crate::pipeline::cache::Cache;
-use crate::pipeline::filter::{Filter, Field, Kind};
+use crate::pipeline::filter::{Field, Filter, Kind};
 use crate::pipeline::retrieve::Retrieve;
 use async_trait::async_trait;
 use rss::Channel;
@@ -13,46 +13,10 @@ pub mod cache;
 pub mod feed;
 pub mod filter;
 pub mod retrieve;
-// mod wasm;
-
-// #[derive(Default)]
-// pub struct Pipeline<I> {
-// 	out: Box<dyn Node<I> + Sync + Send>,
-// }
-
-// impl<I> Pipeline<I>
-// where
-// 	I: Sync + Send + Default,
-// {
-// 	// pub fn new() -> Self {
-// 	// 	Pipeline::default()
-// 	// }
-//
-// 	pub fn add_node(&mut self, node: Box<dyn Node<I> + Sync + Send>) {
-// 		self.nodes.push(node);
-// 	}
-//
-// 	pub async fn pipeline(&self) -> anyhow::Result<Box<[I]>> {
-// 		Node::run(self, Box::new([])).await
-// 	}
-// }
-
-// #[async_trait]
-// impl<I> Node<I> for Pipeline<I>
-// where
-// 	I: Sync + Send,
-// {
-// 	async fn run(&self, input: Box<[I]>) -> anyhow::Result<Box<[I]>> {
-// 		let mut input: Box<[I]> = input;
-// 		for node in &self.nodes {
-// 			input = node.run(input).await?;
-// 		}
-// 		Ok(input)
-// 	}
-// }
+pub mod wasm;
 
 #[async_trait]
-pub trait Node<T> {
+pub trait Node<T>: Sync + Send {
 	// type Item = T;
 
 	async fn run(&self) -> anyhow::Result<T>;
@@ -64,18 +28,25 @@ pub trait Node<T> {
 		Filter::new(self, field, filter, invert)
 	}
 
-	fn retreive(self, content: Selector) -> Retrieve<Self>
+	fn retrieve(self, content: Selector) -> Retrieve<Self>
 	where
-		Self: Sized + Node<Channel> + Serialize + DeserializeOwned + Debug,
+		Self: Node<Channel> + Serialize + DeserializeOwned + Debug,
 	{
 		Retrieve::new(self, content)
 	}
 
 	fn cache<C>(self, ttl: Duration) -> Cache<Self, C>
 	where
-		Self: Sized + Node<C> + Serialize + DeserializeOwned + Debug,
+		Self: Node<C> + Serialize + DeserializeOwned + Debug,
 	{
 		Cache::new(self, ttl)
+	}
+}
+
+#[async_trait]
+impl<T> Node<T> for Box<dyn Node<T> + '_> {
+	async fn run(&self) -> anyhow::Result<T> {
+		(**self).run().await
 	}
 }
 

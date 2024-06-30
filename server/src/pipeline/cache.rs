@@ -33,9 +33,9 @@ where
 }
 
 #[async_trait]
-impl<I: Node<B>, B> Node<B> for Cache<I, B>
+impl<I, B> Node<B> for Cache<I, B>
 where
-	I: Sync + Send + Serialize + DeserializeOwned + Debug,
+	I: Node<B> + Serialize + DeserializeOwned + Debug,
 	B: Clone + Send + Sync,
 {
 	// type Item = Channel;

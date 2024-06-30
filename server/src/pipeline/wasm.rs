@@ -1,56 +1,58 @@
-// use crate::pipeline::Node;
-// use async_trait::async_trait;
-// use reqwest::Url;
-// use rss::Channel;
-// use wasmtime::{Caller, Engine, Instance, Linker, Module, Store};
-// 
+use crate::pipeline::Node;
+use async_trait::async_trait;
+use wasmtime::{Caller, Engine, Linker, Module, Store};
+
 // struct StoreData {
 // 	// channel: Channel
 // }
-// 
-// pub struct WasmNode {
-// 	engine: Engine,
-// 	linker: Linker<StoreData>,
-// 	// store: Store<()>,
-// 	module: Module,
-// 	// instance: Instance,
-// }
-// 
-// impl WasmNode {
-// 	pub fn new(module: Module) -> Self {
-// 		let engine = Engine::default();
-// 		let mut linker = Linker::new(&engine);
-// 
-// 		linker
-// 			.func_wrap(
-// 				"host",
-// 				"host_func",
-// 				|caller: Caller<'_, StoreData>, param: i32| {
-// 					println!("Got {} from WebAssembly", param);
-// 					println!("my host state is: {}", caller.data());
-// 				},
-// 			)
-// 			.expect("");
-// 
-// 		Self {
-// 			engine,
-// 			linker,
-// 			module, // store,
-// 			        // instance,
-// 		}
-// 	}
-// }
-// 
-// #[async_trait]
-// impl Node<Channel> for WasmNode {
-// 	async fn run(&self, _: Box<[Channel]>) -> anyhow::Result<Box<[Channel]>> {
-// 		let mut store: Store<StoreData> = Store::new(&self.engine, StoreData {
-// 			// channel: 
-// 		});
-// 
-// 		let instance = self.linker.instantiate(&mut store, &self.module)?;
-// 		instance.get_typed_func::<(), ()>(&mut store, "run")?;
-// 
-// 		Ok(Box::new([]))
-// 	}
-// }
+
+pub struct Wasm<T: Node<B>, B = ()> {
+	engine: Engine,
+	linker: Linker<B>,
+	// store: Store<()>,
+	module: Module,
+	// instance: Instance,
+	child: Option<T>,
+}
+
+impl<T: Node<B>, B> Wasm<T, B> {
+	pub fn new(module: Module) -> Self {
+		let engine = Engine::default();
+		let mut linker = Linker::new(&engine);
+
+		linker
+			.func_wrap("host", "host_func", |caller: Caller<'_, B>, param: i32| {
+				println!("Got {param} from WebAssembly");
+				// println!("my host state is: {}", caller.data());
+			})
+			.expect("");
+
+		Self {
+			engine,
+			linker,
+			module, // store,
+			// instance,
+			child: None,
+		}
+	}
+}
+
+#[async_trait]
+impl<T, B> Node<B> for Wasm<T, B>
+where
+	T: Node<B>,
+{
+	async fn run(&self) -> anyhow::Result<B> {
+		let data = if let Some(child) = &self.child {
+			child.run().await?
+		} else {
+			todo!()
+		};
+		let mut store: Store<B> = Store::new(&self.engine, data);
+
+		let instance = self.linker.instantiate(&mut store, &self.module)?;
+		instance.get_typed_func::<(), ()>(&mut store, "run")?;
+
+		todo!()
+	}
+}

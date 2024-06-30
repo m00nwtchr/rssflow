@@ -24,6 +24,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 #typetag = "0.2.16"
 url = { version = "2.5", features = ["serde"] }
 
+wasmtime = "22"
+
 [dev-dependencies]
 ron = "0.8"
-#wasmtime = "22.0.0"

@@ -1,4 +1,4 @@
-#![deny(clippy::pedantic)]
+#![warn(clippy::pedantic)]
 
 use crate::app::app;
 

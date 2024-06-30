@@ -16,20 +16,14 @@ pub struct Retrieve<I> {
 	child: I,
 }
 
-impl<I> Retrieve<I>
-where
-	I: Node<Channel>,
-{
+impl<I: Node<Channel>> Retrieve<I> {
 	pub fn new(child: I, content: Selector) -> Self {
 		Self { content, child }
 	}
 }
 
 #[async_trait]
-impl<I: Node<Channel>> Node<Channel> for Retrieve<I>
-where
-	I: Sync + Send,
-{
+impl<I: Node<Channel>> Node<Channel> for Retrieve<I> {
 	// type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {

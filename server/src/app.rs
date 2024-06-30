@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::{ops::Deref, sync::Arc};
 
 use crate::pipeline::feed::Feed;
-use crate::pipeline::filter::{Field, Kind};
+use crate::pipeline::filter::{Field, Filter, Kind};
 use crate::pipeline::Node;
 use crate::route;
 use axum::{routing::get, Router};
@@ -39,10 +39,21 @@ pub async fn app() -> Router {
 					Kind::Contains("BELOW IS A SNEAK PEEK OF THIS CONTENT!".to_string()),
 					true,
 				)
-				.retreive(Selector::parse(".entry-content").unwrap())
+				.retrieve(Selector::parse(".entry-content").unwrap())
 				.cache(Duration::from_secs(60 * 60)),
 		),
 	);
+
+	let a: Box<dyn Node<Channel>> = Box::new(Feed::new(
+		"https://www.azaleaellis.com/tag/pgts/feed".parse().unwrap(),
+	));
+
+	let a: Box<dyn Node<Channel>> = Box::new(Filter::new(
+		a,
+		Field::Description,
+		Kind::Contains("BELOW IS A SNEAK PEEK OF THIS CONTENT!".to_string()),
+		true,
+	));
 
 	let state = AppState(Arc::new(AppStateInner { pipelines: p }));
 
