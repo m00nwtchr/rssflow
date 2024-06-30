@@ -5,6 +5,7 @@ use rss::Channel;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
+use std::thread::available_parallelism;
 use tracing::Instrument;
 use url::Url;
 
@@ -28,27 +29,27 @@ impl<I: Node<Item = Channel>> Node for Retrieve<I> {
 
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let mut rss = self.child.run().await?;
-		let n = min(rss.items.len(), 5);
+		let n = min(rss.items.len(), available_parallelism()?.get() / 2); // Avoiding too high values to prevent spamming the target site.
 
 		let span = tracing::info_span!("retrieve_node");
 		rss.items = stream::iter(rss.items.into_iter())
 			.map(|mut item| async {
-				if let Some(link) = &item.link {
-					tracing::info!("{link}");
-					let content = reqwest::get(link.parse::<Url>().unwrap())
-						.await
-						.unwrap()
-						.text()
-						.await
-						.unwrap();
-					let html = Html::parse_document(&content);
+				let Some(link) = &item.link else {
+					return item;
+				};
 
-					let content: String =
-						html.select(&self.content).map(|s| s.inner_html()).collect();
+				tracing::info!("{link}");
+				let content = reqwest::get(link.parse::<Url>().unwrap())
+					.await
+					.unwrap()
+					.text()
+					.await
+					.unwrap();
+				let html = Html::parse_document(&content);
+				let content: String = html.select(&self.content).map(|s| s.inner_html()).collect();
 
-					item.description = None;
-					item.content = Some(content);
-				}
+				item.description = None;
+				item.content = Some(content);
 
 				item
 			})
