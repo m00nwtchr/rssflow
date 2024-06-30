@@ -1,4 +1,4 @@
-use crate::pipeline::Node;
+use crate::pipeline::NodeTrait;
 use async_trait::async_trait;
 use std::marker::PhantomData;
 use wasmtime::{Caller, Engine, Linker, Module, Store};
@@ -7,7 +7,7 @@ use wasmtime::{Caller, Engine, Linker, Module, Store};
 // 	// channel: Channel
 // }
 
-pub struct Wasm<T: Node, O = ()> {
+pub struct Wasm<T: NodeTrait, O = ()> {
 	engine: Engine,
 	linker: Linker<T::Item>,
 	// store: Store<()>,
@@ -17,7 +17,7 @@ pub struct Wasm<T: Node, O = ()> {
 	_phantom: PhantomData<O>,
 }
 
-impl<T: Node, O> Wasm<T, O> {
+impl<T: NodeTrait, O> Wasm<T, O> {
 	pub fn new(module: Module) -> Self {
 		let engine = Engine::default();
 		let mut linker = Linker::new(&engine);
@@ -45,7 +45,7 @@ impl<T: Node, O> Wasm<T, O> {
 }
 
 #[async_trait]
-impl<T: Node, O: Sync + Send + wasmtime::WasmResults> Node for Wasm<T, O>
+impl<T: NodeTrait, O: Sync + Send + wasmtime::WasmResults> NodeTrait for Wasm<T, O>
 where
 	T::Item: Sync + Send,
 {

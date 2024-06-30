@@ -7,10 +7,10 @@ use tokio::{
 	time::{Duration, Instant},
 };
 
-use crate::pipeline::Node;
+use crate::pipeline::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Cache<I: Node> {
+pub struct Cache<I: NodeTrait> {
 	ttl: Duration,
 	#[serde(skip, default = "Instant::now")]
 	last_run: Instant,
@@ -22,7 +22,7 @@ pub struct Cache<I: Node> {
 
 impl<I> Cache<I>
 where
-	I: Node + Serialize + DeserializeOwned + Debug,
+	I: NodeTrait,
 {
 	pub fn new(child: I, ttl: Duration) -> Self {
 		Self {
@@ -35,9 +35,9 @@ where
 }
 
 #[async_trait]
-impl<I> Node for Cache<I>
+impl<I> NodeTrait for Cache<I>
 where
-	I: Node + Serialize + DeserializeOwned + Debug,
+	I: NodeTrait,
 	I::Item: Clone + Send + Sync,
 {
 	type Item = I::Item;

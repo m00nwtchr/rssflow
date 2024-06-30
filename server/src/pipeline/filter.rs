@@ -1,4 +1,4 @@
-use crate::pipeline::Node;
+use crate::pipeline::NodeTrait;
 use async_trait::async_trait;
 use regex::Regex;
 use rss::Channel;
@@ -13,7 +13,7 @@ pub struct Filter<I> {
 	child: I,
 }
 
-impl<I: Node> Filter<I> {
+impl<I: NodeTrait> Filter<I> {
 	pub fn new(child: I, field: Field, filter: Kind, invert: bool) -> Self {
 		Self {
 			field,
@@ -25,7 +25,7 @@ impl<I: Node> Filter<I> {
 }
 
 #[async_trait]
-impl<I: Node<Item = Channel>> Node for Filter<I> {
+impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
 	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {

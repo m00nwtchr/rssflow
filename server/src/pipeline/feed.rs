@@ -1,4 +1,4 @@
-use crate::pipeline::Node;
+use crate::pipeline::NodeTrait;
 use async_trait::async_trait;
 use rss::Channel;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ impl Feed {
 }
 
 #[async_trait]
-impl Node for Feed {
+impl NodeTrait for Feed {
 	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {

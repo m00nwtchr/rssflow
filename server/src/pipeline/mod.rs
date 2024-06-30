@@ -15,11 +15,12 @@ pub mod feed;
 pub mod filter;
 pub mod retrieve;
 
+mod definition;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
 #[async_trait]
-pub trait Node: Sync + Send {
+pub trait NodeTrait: Sync + Send {
 	type Item;
 
 	async fn run(&self) -> anyhow::Result<Self::Item>;
@@ -33,21 +34,21 @@ pub trait Node: Sync + Send {
 
 	fn retrieve(self, content: Selector) -> Retrieve<Self>
 	where
-		Self: Serialize + DeserializeOwned + Debug,
+		Self: Sized,
 	{
 		Retrieve::new(self, content)
 	}
 
 	fn cache(self, ttl: Duration) -> Cache<Self>
 	where
-		Self: Serialize + DeserializeOwned + Debug,
+		Self: Sized,
 	{
 		Cache::new(self, ttl)
 	}
 }
 
 #[async_trait]
-impl<T> Node for Box<dyn Node<Item = T> + '_> {
+impl<T> NodeTrait for Box<dyn NodeTrait<Item = T> + '_> {
 	type Item = T;
 
 	async fn run(&self) -> anyhow::Result<T> {
@@ -60,7 +61,7 @@ mod test {
 	use crate::pipeline::{
 		feed::Feed,
 		filter::{Field, Kind},
-		Node,
+		NodeTrait,
 	};
 	use ron::ser::PrettyConfig;
 	use std::time::Duration;

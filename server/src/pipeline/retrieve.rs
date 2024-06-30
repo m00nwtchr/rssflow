@@ -7,7 +7,7 @@ use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
 
-use crate::pipeline::Node;
+use crate::pipeline::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve<I> {
@@ -17,7 +17,7 @@ pub struct Retrieve<I> {
 	child: I,
 }
 
-impl<I: Node> Retrieve<I> {
+impl<I: NodeTrait> Retrieve<I> {
 	pub fn new(child: I, content: Selector) -> Self {
 		Self { content, child }
 	}
@@ -40,7 +40,7 @@ async fn get_content(mut item: rss::Item, selector: &Selector) -> anyhow::Result
 }
 
 #[async_trait]
-impl<I: Node<Item = Channel>> Node for Retrieve<I> {
+impl<I: NodeTrait<Item = Channel>> NodeTrait for Retrieve<I> {
 	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {
@@ -60,7 +60,7 @@ impl<I: Node<Item = Channel>> Node for Retrieve<I> {
 	}
 }
 
-mod serde_selector {
+pub(crate) mod serde_selector {
 	use scraper::{selector::ToCss, Selector};
 	use serde::{Deserialize, Deserializer, Serializer};
 
