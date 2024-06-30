@@ -1,10 +1,13 @@
+use axum::{
+	http::{header, HeaderValue},
+	response::{IntoResponse, Response},
+};
+use rss::Channel;
+
 mod api;
 mod pipe;
 
-use axum::http::{header, HeaderValue};
-use axum::response::{IntoResponse, Response};
 pub use pipe::router as pipe;
-use rss::Channel;
 
 // fn internal_error<E>(err: E) -> (StatusCode, String)
 // where

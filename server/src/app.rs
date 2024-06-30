@@ -1,14 +1,17 @@
-use std::collections::HashMap;
-use std::time::Duration;
-use std::{ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
 
-use crate::pipeline::feed::Feed;
-use crate::pipeline::filter::{Field, Filter, Kind};
-use crate::pipeline::Node;
-use crate::route;
 use axum::{routing::get, Router};
 use rss::Channel;
 use scraper::Selector;
+
+use crate::{
+	pipeline::{
+		feed::Feed,
+		filter::{Field, Filter, Kind},
+		Node,
+	},
+	route,
+};
 
 #[allow(clippy::module_name_repetitions)]
 pub struct AppStateInner {

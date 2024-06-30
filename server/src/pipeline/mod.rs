@@ -1,13 +1,14 @@
-use crate::pipeline::cache::Cache;
-use crate::pipeline::filter::{Field, Filter, Kind};
-use crate::pipeline::retrieve::Retrieve;
-use async_trait::async_trait;
+use std::{fmt::Debug, time::Duration};
 
+use async_trait::async_trait;
 use scraper::Selector;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::fmt::Debug;
-use std::time::Duration;
+use serde::{de::DeserializeOwned, Serialize};
+
+use crate::pipeline::{
+	cache::Cache,
+	filter::{Field, Filter, Kind},
+	retrieve::Retrieve,
+};
 
 pub mod cache;
 pub mod feed;
@@ -56,9 +57,11 @@ impl<T> Node for Box<dyn Node<Item = T> + '_> {
 
 #[cfg(test)]
 mod test {
-	use crate::pipeline::feed::Feed;
-	use crate::pipeline::filter::{Field, Kind};
-	use crate::pipeline::Node;
+	use crate::pipeline::{
+		feed::Feed,
+		filter::{Field, Kind},
+		Node,
+	};
 	use ron::ser::PrettyConfig;
 	use std::time::Duration;
 	use tokio::time::sleep;

@@ -1,10 +1,12 @@
-use crate::app::AppState;
-use crate::route::Atom;
-use axum::extract::{Path, State};
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use axum::routing::get;
-use axum::Router;
+use axum::{
+	extract::{Path, State},
+	http::StatusCode,
+	response::IntoResponse,
+	routing::get,
+	Router,
+};
+
+use crate::{app::AppState, route::Atom};
 
 pub async fn run(
 	Path(path): Path<String>,

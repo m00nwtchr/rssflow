@@ -1,11 +1,13 @@
-use crate::pipeline::Node;
+use std::cmp::min;
+
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use rss::Channel;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::cmp::min;
 use tracing::Instrument;
+
+use crate::pipeline::Node;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve<I> {
@@ -59,8 +61,7 @@ impl<I: Node<Item = Channel>> Node for Retrieve<I> {
 }
 
 mod serde_selector {
-	use scraper::selector::ToCss;
-	use scraper::Selector;
+	use scraper::{selector::ToCss, Selector};
 	use serde::{Deserialize, Deserializer, Serializer};
 
 	pub fn serialize<S>(selector: &Selector, serializer: S) -> Result<S::Ok, S::Error>

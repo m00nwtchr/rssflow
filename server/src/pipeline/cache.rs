@@ -1,11 +1,13 @@
-use crate::pipeline::Node;
-use async_trait::async_trait;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tokio::sync::Mutex;
-use tokio::time::Duration;
-use tokio::time::Instant;
+
+use async_trait::async_trait;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tokio::{
+	sync::Mutex,
+	time::{Duration, Instant},
+};
+
+use crate::pipeline::Node;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Cache<I: Node> {
