@@ -12,7 +12,7 @@ use scraper::Selector;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct AppStateInner {
-	pub pipelines: HashMap<String, Box<dyn Node<Channel> + Send + Sync>>,
+	pub pipelines: HashMap<String, Box<dyn Node<Item = Channel>>>,
 }
 
 #[derive(Clone)]
@@ -29,7 +29,7 @@ impl Deref for AppState {
 }
 
 pub async fn app() -> Router {
-	let mut p: HashMap<String, Box<dyn Node<Channel> + Send + Sync>> = HashMap::new();
+	let mut p: HashMap<String, Box<dyn Node<Item = Channel>>> = HashMap::new();
 	p.insert(
 		"azaleaellis".to_string(),
 		Box::new(
@@ -44,11 +44,11 @@ pub async fn app() -> Router {
 		),
 	);
 
-	let a: Box<dyn Node<Channel>> = Box::new(Feed::new(
+	let a: Box<dyn Node<Item = Channel>> = Box::new(Feed::new(
 		"https://www.azaleaellis.com/tag/pgts/feed".parse().unwrap(),
 	));
 
-	let a: Box<dyn Node<Channel>> = Box::new(Filter::new(
+	let a: Box<dyn Node<Item = Channel>> = Box::new(Filter::new(
 		a,
 		Field::Description,
 		Kind::Contains("BELOW IS A SNEAK PEEK OF THIS CONTENT!".to_string()),

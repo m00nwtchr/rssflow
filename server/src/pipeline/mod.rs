@@ -2,7 +2,7 @@ use crate::pipeline::cache::Cache;
 use crate::pipeline::filter::{Field, Filter, Kind};
 use crate::pipeline::retrieve::Retrieve;
 use async_trait::async_trait;
-use rss::Channel;
+
 use scraper::Selector;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -13,38 +13,42 @@ pub mod cache;
 pub mod feed;
 pub mod filter;
 pub mod retrieve;
+
+#[cfg(feature = "wasm")]
 pub mod wasm;
 
 #[async_trait]
-pub trait Node<T>: Sync + Send {
-	// type Item = T;
+pub trait Node: Sync + Send {
+	type Item;
 
-	async fn run(&self) -> anyhow::Result<T>;
+	async fn run(&self) -> anyhow::Result<Self::Item>;
 
 	fn filter(self, field: Field, filter: Kind, invert: bool) -> Filter<Self>
 	where
-		Self: Sized + Node<Channel>,
+		Self: Sized,
 	{
 		Filter::new(self, field, filter, invert)
 	}
 
 	fn retrieve(self, content: Selector) -> Retrieve<Self>
 	where
-		Self: Node<Channel> + Serialize + DeserializeOwned + Debug,
+		Self: Serialize + DeserializeOwned + Debug,
 	{
 		Retrieve::new(self, content)
 	}
 
-	fn cache<C>(self, ttl: Duration) -> Cache<Self, C>
+	fn cache(self, ttl: Duration) -> Cache<Self>
 	where
-		Self: Node<C> + Serialize + DeserializeOwned + Debug,
+		Self: Serialize + DeserializeOwned + Debug,
 	{
 		Cache::new(self, ttl)
 	}
 }
 
 #[async_trait]
-impl<T> Node<T> for Box<dyn Node<T> + '_> {
+impl<T> Node for Box<dyn Node<Item = T> + '_> {
+	type Item = T;
+
 	async fn run(&self) -> anyhow::Result<T> {
 		(**self).run().await
 	}

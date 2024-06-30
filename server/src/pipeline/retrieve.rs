@@ -16,15 +16,15 @@ pub struct Retrieve<I> {
 	child: I,
 }
 
-impl<I: Node<Channel>> Retrieve<I> {
+impl<I: Node> Retrieve<I> {
 	pub fn new(child: I, content: Selector) -> Self {
 		Self { content, child }
 	}
 }
 
 #[async_trait]
-impl<I: Node<Channel>> Node<Channel> for Retrieve<I> {
-	// type Item = Channel;
+impl<I: Node<Item = Channel>> Node for Retrieve<I> {
+	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let mut rss = self.child.run().await?;

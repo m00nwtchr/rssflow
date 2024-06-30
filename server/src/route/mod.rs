@@ -1,9 +1,8 @@
 mod api;
 mod pipe;
 
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{header, HeaderValue};
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 pub use pipe::router as pipe;
 use rss::Channel;
 

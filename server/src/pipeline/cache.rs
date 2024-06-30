@@ -8,19 +8,19 @@ use tokio::time::Duration;
 use tokio::time::Instant;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Cache<I, B> {
+pub struct Cache<I: Node> {
 	ttl: Duration,
 	#[serde(skip, default = "Instant::now")]
 	last_run: Instant,
 
 	child: I,
 	#[serde(skip)]
-	cached: Mutex<Option<B>>,
+	cached: Mutex<Option<I::Item>>,
 }
 
-impl<I, B> Cache<I, B>
+impl<I> Cache<I>
 where
-	I: Node<B> + Serialize + DeserializeOwned + Debug,
+	I: Node + Serialize + DeserializeOwned + Debug,
 {
 	pub fn new(child: I, ttl: Duration) -> Self {
 		Self {
@@ -33,14 +33,14 @@ where
 }
 
 #[async_trait]
-impl<I, B> Node<B> for Cache<I, B>
+impl<I> Node for Cache<I>
 where
-	I: Node<B> + Serialize + DeserializeOwned + Debug,
-	B: Clone + Send + Sync,
+	I: Node + Serialize + DeserializeOwned + Debug,
+	I::Item: Clone + Send + Sync,
 {
-	// type Item = Channel;
+	type Item = I::Item;
 
-	async fn run(&self) -> anyhow::Result<B> {
+	async fn run(&self) -> anyhow::Result<Self::Item> {
 		if Instant::now().duration_since(self.last_run) > self.ttl {
 			Ok(self
 				.cached

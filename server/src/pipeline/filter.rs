@@ -13,7 +13,7 @@ pub struct Filter<I> {
 	child: I,
 }
 
-impl<I: Node<Channel>> Filter<I> {
+impl<I: Node> Filter<I> {
 	pub fn new(child: I, field: Field, filter: Kind, invert: bool) -> Self {
 		Self {
 			field,
@@ -25,7 +25,9 @@ impl<I: Node<Channel>> Filter<I> {
 }
 
 #[async_trait]
-impl<I: Node<Channel>> Node<Channel> for Filter<I> {
+impl<I: Node<Item = Channel>> Node for Filter<I> {
+	type Item = Channel;
+
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let mut rss = self.child.run().await?;
 

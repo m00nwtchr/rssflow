@@ -16,7 +16,9 @@ impl Feed {
 }
 
 #[async_trait]
-impl Node<Channel> for Feed {
+impl Node for Feed {
+	type Item = Channel;
+
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let content = reqwest::get(self.url.clone()).await?.bytes().await?;
 		let channel = Channel::read_from(&content[..])?;

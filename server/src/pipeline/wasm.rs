@@ -1,30 +1,36 @@
 use crate::pipeline::Node;
 use async_trait::async_trait;
+use std::marker::PhantomData;
 use wasmtime::{Caller, Engine, Linker, Module, Store};
 
 // struct StoreData {
 // 	// channel: Channel
 // }
 
-pub struct Wasm<T: Node<B>, B = ()> {
+pub struct Wasm<T: Node, O = ()> {
 	engine: Engine,
-	linker: Linker<B>,
+	linker: Linker<T::Item>,
 	// store: Store<()>,
 	module: Module,
 	// instance: Instance,
 	child: Option<T>,
+	_phantom: PhantomData<O>,
 }
 
-impl<T: Node<B>, B> Wasm<T, B> {
+impl<T: Node, O> Wasm<T, O> {
 	pub fn new(module: Module) -> Self {
 		let engine = Engine::default();
 		let mut linker = Linker::new(&engine);
 
 		linker
-			.func_wrap("host", "host_func", |caller: Caller<'_, B>, param: i32| {
-				println!("Got {param} from WebAssembly");
-				// println!("my host state is: {}", caller.data());
-			})
+			.func_wrap(
+				"host",
+				"host_func",
+				|caller: Caller<'_, T::Item>, param: i32| {
+					println!("Got {param} from WebAssembly");
+					// println!("my host state is: {}", caller.data());
+				},
+			)
 			.expect("");
 
 		Self {
@@ -33,26 +39,29 @@ impl<T: Node<B>, B> Wasm<T, B> {
 			module, // store,
 			// instance,
 			child: None,
+			_phantom: PhantomData,
 		}
 	}
 }
 
 #[async_trait]
-impl<T, B> Node<B> for Wasm<T, B>
+impl<T: Node, O: Sync + Send + wasmtime::WasmResults> Node for Wasm<T, O>
 where
-	T: Node<B>,
+	T::Item: Sync + Send,
 {
-	async fn run(&self) -> anyhow::Result<B> {
+	type Item = O;
+
+	async fn run(&self) -> anyhow::Result<Self::Item> {
 		let data = if let Some(child) = &self.child {
 			child.run().await?
 		} else {
 			todo!()
 		};
-		let mut store: Store<B> = Store::new(&self.engine, data);
+		let mut store: Store<T::Item> = Store::new(&self.engine, data);
 
 		let instance = self.linker.instantiate(&mut store, &self.module)?;
-		instance.get_typed_func::<(), ()>(&mut store, "run")?;
+		let func = instance.get_typed_func::<(), O>(&mut store, "run")?;
 
-		todo!()
+		Ok(func.call_async(&mut store, ()).await?)
 	}
 }
