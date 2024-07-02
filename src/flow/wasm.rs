@@ -11,14 +11,11 @@ use super::{dummy::Dummy, node::NodeTrait};
 use pipe::{MyInputPipe, MyOutputPipe};
 
 pub struct Wasm<O, T: NodeTrait = Dummy> {
-	// engine: Engine,
-	// linker: Linker<()>,
 	store: Mutex<Store<WasiP1Ctx>>,
 
 	stdin: MyInputPipe,
 	stdout: MyOutputPipe,
 
-	// module: Module,
 	func: TypedFunc<(), ()>,
 
 	child: Option<T>,
@@ -28,8 +25,6 @@ pub struct Wasm<O, T: NodeTrait = Dummy> {
 impl<O, T: NodeTrait> Wasm<O, T> {
 	pub async fn new(wat: impl AsRef<[u8]>) -> anyhow::Result<Self> {
 		let engine = Engine::new(Config::new().async_support(true))?;
-
-		// let module = Module::from_file(&engine, "wasm_node_test.wasm")?;
 		let module = Module::new(&engine, wat)?;
 
 		let mut linker = Linker::new(&engine);
@@ -39,11 +34,9 @@ impl<O, T: NodeTrait> Wasm<O, T> {
 		let stdout = MyOutputPipe::new();
 
 		let wasi_ctx = WasiCtxBuilder::new()
-			// .inherit_env()
 			.stdin(stdin.clone())
 			.stdout(stdout.clone())
 			.inherit_stderr()
-			// .inherit_stdio()
 			.build_p1();
 
 		let mut store = Store::new(&engine, wasi_ctx);
@@ -56,22 +49,11 @@ impl<O, T: NodeTrait> Wasm<O, T> {
 			.ok_or(anyhow!("fuck"))?
 			.typed(&store)?;
 
-		// linker.func_wrap("host", "host_func", |caller: Caller<'_, ()>, param: i32| {
-		// 	println!("Got {param} from WebAssembly");
-		// 	// println!("my host state is: {}", caller.data());
-		// })?;
-
 		Ok(Self {
-			// engine,
-			// linker,
 			store: Mutex::new(store),
-
 			stdin,
 			stdout,
-
-			// module,
 			func,
-
 			child: None,
 			_phantom: PhantomData,
 		})
