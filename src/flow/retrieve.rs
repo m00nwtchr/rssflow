@@ -7,7 +7,7 @@ use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
 
-use crate::flow::node::NodeTrait;
+use super::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve<I> {

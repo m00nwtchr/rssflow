@@ -71,6 +71,6 @@ pub async fn app() -> anyhow::Result<Router> {
 			.nest("/api", route::api())
 			.nest("/flow", route::flow())
 			.route("/", get(|| async { "Hello, World!".to_string() }))
-			.with_state(state), // .with_state(config)
+			.with_state(state), // .with_state(config.toml)
 	)
 }

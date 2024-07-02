@@ -6,6 +6,7 @@ pub mod retrieve;
 pub mod sanitise;
 #[cfg(feature = "wasm")]
 pub mod wasm;
+mod dummy;
 
 #[cfg(test)]
 mod test {

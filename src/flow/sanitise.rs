@@ -1,11 +1,12 @@
-use crate::flow::{filter::Field, node::NodeTrait};
+use std::thread::available_parallelism;
+
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use rss::Channel;
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::{cmp::min, thread::available_parallelism};
 use tracing::Instrument;
+
+use super::{filter::Field, node::NodeTrait};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sanitise<I> {

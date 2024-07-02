@@ -1,18 +1,19 @@
 #![allow(clippy::module_name_repetitions)]
 use std::time::Duration;
 
-use super::{
-	cache::Cache,
-	feed::Feed,
-	filter::{Field, Filter, Kind},
-	retrieve::{serde_selector, Retrieve},
-};
-use crate::flow::sanitise::Sanitise;
 use async_trait::async_trait;
 use rss::Channel;
 use scraper::Selector;
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+use super::{
+	cache::Cache,
+	feed::Feed,
+	filter::{Field, Filter, Kind},
+	retrieve::{serde_selector, Retrieve},
+	sanitise::Sanitise,
+};
 
 pub type NodeObject<T> = Box<dyn NodeTrait<Item = T>>;
 pub type RSSNode = NodeObject<Channel>;
@@ -80,6 +81,14 @@ pub trait NodeTrait: Sync + Send {
 		Self: Sized,
 	{
 		Sanitise::new(self, field)
+	}
+
+	#[cfg(feature = "wasm")]
+	async fn wasm<T>(self, wat: &[u8]) -> anyhow::Result<super::wasm::Wasm<T, Self>>
+	where
+		Self: Sized,
+	{
+		Ok(super::wasm::Wasm::new(wat).await?.child(self))
 	}
 }
 
