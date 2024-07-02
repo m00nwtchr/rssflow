@@ -68,8 +68,8 @@ impl<O, T: NodeTrait> Wasm<O, T> {
 #[async_trait]
 impl<O, T: NodeTrait> NodeTrait for Wasm<O, T>
 where
-	T::Item: Sync + Send + Serialize,
-	O: Sync + Send + DeserializeOwned + Default,
+	T::Item: Serialize,
+	O: Sync + Send + DeserializeOwned,
 {
 	type Item = O;
 
