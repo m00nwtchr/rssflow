@@ -1,4 +1,4 @@
-use crate::pipeline::NodeTrait;
+use crate::pipeline::node::NodeTrait;
 use async_trait::async_trait;
 use regex::Regex;
 use rss::Channel;
@@ -35,6 +35,7 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
 			let cmp = match self.field {
 				Field::Author => &item.author,
 				Field::Description => &item.description,
+				Field::Content => &item.content,
 				Field::Title => &item.title,
 			};
 			let cmp = if let Some(cmp) = cmp { cmp } else { "" };
@@ -62,6 +63,7 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
 pub enum Field {
 	Author,
 	Description,
+	Content,
 	Title,
 	// Uri
 }

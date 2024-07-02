@@ -9,10 +9,10 @@ use axum::{
 use crate::{app::AppState, route::Atom};
 
 pub async fn run(
-	Path(path): Path<String>,
+	Path(name): Path<String>,
 	State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if let Some(pipe) = state.pipelines.get(&path) {
+	if let Some(pipe) = state.flows.lock().await.get(&name).cloned() {
 		let channel = pipe
 			.run()
 			.await
@@ -24,5 +24,5 @@ pub async fn run(
 }
 
 pub fn router() -> Router<AppState> {
-	Router::new().route("/:pipeline", get(run))
+	Router::new().route("/:name", get(run))
 }

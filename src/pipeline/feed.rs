@@ -1,4 +1,4 @@
-use crate::pipeline::NodeTrait;
+use crate::pipeline::node::NodeTrait;
 use async_trait::async_trait;
 use rss::Channel;
 use serde::{Deserialize, Serialize};

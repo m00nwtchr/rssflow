@@ -7,7 +7,7 @@ use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
 
-use crate::pipeline::NodeTrait;
+use crate::pipeline::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve<I> {
@@ -33,7 +33,7 @@ async fn get_content(mut item: rss::Item, selector: &Selector) -> anyhow::Result
 	let html = Html::parse_document(&content);
 	let content: String = html.select(selector).map(|s| s.inner_html()).collect();
 
-	item.description = None;
+	// item.description = None;
 	item.content = Some(content);
 
 	Ok(item)

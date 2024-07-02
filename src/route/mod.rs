@@ -2,19 +2,21 @@ use axum::{
 	http::{header, HeaderValue},
 	response::{IntoResponse, Response},
 };
+use axum::http::StatusCode;
 use rss::Channel;
 
 mod api;
-mod pipe;
+mod flow;
 
-pub use pipe::router as pipe;
+pub use api::router as api;
+pub use flow::router as pipe;
 
-// fn internal_error<E>(err: E) -> (StatusCode, String)
-// where
-// 	E: std::error::Error,
-// {
-// 	(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-// }
+fn internal_error<E>(err: E) -> (StatusCode, String)
+where
+	E: std::error::Error,
+{
+	(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+}
 
 static APPLICATION_ATOM_XML: HeaderValue = HeaderValue::from_static("application/atom+xml");
 

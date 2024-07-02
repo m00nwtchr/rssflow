@@ -1,4 +1,4 @@
-use crate::pipeline::NodeTrait;
+use crate::pipeline::node::NodeTrait;
 use async_trait::async_trait;
 use std::marker::PhantomData;
 use wasmtime::{Caller, Engine, Linker, Module, Store};
