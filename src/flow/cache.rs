@@ -7,7 +7,7 @@ use tokio::{
 	time::{Duration, Instant},
 };
 
-use crate::pipeline::node::NodeTrait;
+use crate::flow::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Cache<I: NodeTrait> {

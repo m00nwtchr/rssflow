@@ -1,6 +1,6 @@
 use crate::{
-	pipeline,
-	pipeline::{
+	flow,
+	flow::{
 		filter::{Field, Kind},
 		node::{Node, NodeTrait, RSSNode},
 	},
@@ -69,7 +69,7 @@ pub async fn app() -> anyhow::Result<Router> {
 	Ok(
 		Router::new()
 			.nest("/api", route::api())
-			.nest("/flow", route::pipe())
+			.nest("/flow", route::flow())
 			.route("/", get(|| async { "Hello, World!".to_string() }))
 			.with_state(state), // .with_state(config)
 	)

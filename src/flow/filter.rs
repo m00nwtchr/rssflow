@@ -1,4 +1,4 @@
-use crate::pipeline::node::NodeTrait;
+use crate::flow::node::NodeTrait;
 use async_trait::async_trait;
 use regex::Regex;
 use rss::Channel;

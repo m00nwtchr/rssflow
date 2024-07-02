@@ -1,4 +1,4 @@
-use crate::{app::AppState, pipeline::node::Node, route::internal_error};
+use crate::{app::AppState, flow::node::Node, route::internal_error};
 use axum::{
 	extract::{Path, State},
 	http::StatusCode,

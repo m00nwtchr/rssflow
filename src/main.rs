@@ -3,7 +3,7 @@
 use crate::app::app;
 
 mod app;
-mod pipeline;
+mod flow;
 mod route;
 // mod rss;
 

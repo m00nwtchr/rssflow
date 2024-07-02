@@ -1,4 +1,4 @@
-use crate::pipeline::{filter::Field, node::NodeTrait};
+use crate::flow::{filter::Field, node::NodeTrait};
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use rss::Channel;

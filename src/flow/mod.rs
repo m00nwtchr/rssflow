@@ -10,7 +10,7 @@ pub mod wasm;
 #[cfg(test)]
 mod test {
 	use super::node::NodeTrait;
-	use crate::pipeline::{
+	use crate::flow::{
 		feed::Feed,
 		filter::{Field, Kind},
 	};

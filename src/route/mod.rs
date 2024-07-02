@@ -9,7 +9,7 @@ mod api;
 mod flow;
 
 pub use api::router as api;
-pub use flow::router as pipe;
+pub use flow::router as flow;
 
 fn internal_error<E>(err: E) -> (StatusCode, String)
 where

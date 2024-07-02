@@ -12,8 +12,8 @@ pub async fn run(
 	Path(name): Path<String>,
 	State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if let Some(pipe) = state.flows.lock().await.get(&name).cloned() {
-		let channel = pipe
+	if let Some(flow) = state.flows.lock().await.get(&name).cloned() {
+		let channel = flow
 			.run()
 			.await
 			.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;

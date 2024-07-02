@@ -7,7 +7,7 @@ use super::{
 	filter::{Field, Filter, Kind},
 	retrieve::{serde_selector, Retrieve},
 };
-use crate::pipeline::sanitise::Sanitise;
+use crate::flow::sanitise::Sanitise;
 use async_trait::async_trait;
 use rss::Channel;
 use scraper::Selector;
