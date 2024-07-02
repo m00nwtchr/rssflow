@@ -14,8 +14,9 @@ FROM scratch
 
 WORKDIR /app
 
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/server ./
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/rss-pipe ./
 
 EXPOSE 3434:3434/tcp
+VOLUME /data
 
-CMD ["/app/server"]
+CMD ["/app/rss-pipe"]

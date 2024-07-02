@@ -1,9 +1,9 @@
-#![deny(clippy::pedantic)]
+#![warn(clippy::pedantic)]
 
 use crate::app::app;
 
 mod app;
-mod pipeline;
+mod flow;
 mod route;
 // mod rss;
 
@@ -11,9 +11,11 @@ mod route;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
 	tracing_subscriber::fmt::init();
 
 	let listener = tokio::net::TcpListener::bind("[::]:3434").await.unwrap();
-	axum::serve(listener, app().await).await.unwrap();
+	axum::serve(listener, app().await?).await.unwrap();
+
+	Ok(())
 }

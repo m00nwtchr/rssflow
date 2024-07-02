@@ -1,4 +1,4 @@
-use crate::pipeline::Node;
+use crate::flow::node::NodeTrait;
 use async_trait::async_trait;
 use regex::Regex;
 use rss::Channel;
@@ -13,10 +13,7 @@ pub struct Filter<I> {
 	child: I,
 }
 
-impl<I> Filter<I>
-where
-	I: Node<Channel>,
-{
+impl<I: NodeTrait> Filter<I> {
 	pub fn new(child: I, field: Field, filter: Kind, invert: bool) -> Self {
 		Self {
 			field,
@@ -28,11 +25,8 @@ where
 }
 
 #[async_trait]
-impl<I: Node<Channel>> Node<Channel> for Filter<I>
-where
-	I: Sync + Send,
-{
-	// type Item = Channel;
+impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
+	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let mut rss = self.child.run().await?;
@@ -41,6 +35,7 @@ where
 			let cmp = match self.field {
 				Field::Author => &item.author,
 				Field::Description => &item.description,
+				Field::Content => &item.content,
 				Field::Title => &item.title,
 			};
 			let cmp = if let Some(cmp) = cmp { cmp } else { "" };
@@ -68,6 +63,7 @@ where
 pub enum Field {
 	Author,
 	Description,
+	Content,
 	Title,
 	// Uri
 }

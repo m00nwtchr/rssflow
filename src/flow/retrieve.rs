@@ -1,12 +1,13 @@
-use crate::pipeline::Node;
+use std::cmp::min;
+
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use rss::Channel;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::cmp::min;
 use tracing::Instrument;
-use url::Url;
+
+use crate::flow::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve<I> {
@@ -16,60 +17,51 @@ pub struct Retrieve<I> {
 	child: I,
 }
 
-impl<I> Retrieve<I>
-where
-	I: Node<Channel>,
-{
+impl<I: NodeTrait> Retrieve<I> {
 	pub fn new(child: I, content: Selector) -> Self {
 		Self { content, child }
 	}
 }
 
+async fn get_content(mut item: rss::Item, selector: &Selector) -> anyhow::Result<rss::Item> {
+	let Some(link) = &item.link else {
+		return Ok(item);
+	};
+
+	tracing::info!("{link}");
+	let content = reqwest::get(link).await?.text().await?;
+	let html = Html::parse_document(&content);
+	let content: String = html.select(selector).map(|s| s.inner_html()).collect();
+
+	// item.description = None;
+	item.content = Some(content);
+
+	Ok(item)
+}
+
 #[async_trait]
-impl<I: Node<Channel>> Node<Channel> for Retrieve<I>
-where
-	I: Sync + Send,
-{
-	// type Item = Channel;
+impl<I: NodeTrait<Item = Channel>> NodeTrait for Retrieve<I> {
+	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let mut rss = self.child.run().await?;
-		let n = min(rss.items.len(), 5);
+		let n = min(rss.items.len(), 6); // Avoiding too high values to prevent spamming the target site.
 
 		let span = tracing::info_span!("retrieve_node");
-		rss.items = stream::iter(rss.items.into_iter())
-			.map(|mut item| async {
-				if let Some(link) = &item.link {
-					tracing::info!("{link}");
-					let content = reqwest::get(link.parse::<Url>().unwrap())
-						.await
-						.unwrap()
-						.text()
-						.await
-						.unwrap();
-					let html = Html::parse_document(&content);
-
-					let content: String =
-						html.select(&self.content).map(|s| s.inner_html()).collect();
-
-					item.description = None;
-					item.content = Some(content);
-				}
-
-				item
-			})
+		let items: Vec<anyhow::Result<rss::Item>> = stream::iter(rss.items.into_iter())
+			.map(|item| get_content(item, &self.content))
 			.buffered(n)
 			.collect()
 			.instrument(span)
 			.await;
+		rss.items = items.into_iter().collect::<anyhow::Result<_>>()?;
 
 		Ok(rss)
 	}
 }
 
-mod serde_selector {
-	use scraper::selector::ToCss;
-	use scraper::Selector;
+pub(crate) mod serde_selector {
+	use scraper::{selector::ToCss, Selector};
 	use serde::{Deserialize, Deserializer, Serializer};
 
 	pub fn serialize<S>(selector: &Selector, serializer: S) -> Result<S::Ok, S::Error>

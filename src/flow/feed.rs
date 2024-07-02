@@ -1,4 +1,4 @@
-use crate::pipeline::Node;
+use crate::flow::node::NodeTrait;
 use async_trait::async_trait;
 use rss::Channel;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,9 @@ impl Feed {
 }
 
 #[async_trait]
-impl Node<Channel> for Feed {
+impl NodeTrait for Feed {
+	type Item = Channel;
+
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let content = reqwest::get(self.url.clone()).await?.bytes().await?;
 		let channel = Channel::read_from(&content[..])?;

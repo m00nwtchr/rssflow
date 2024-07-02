@@ -1,26 +1,28 @@
-use crate::pipeline::Node;
-use async_trait::async_trait;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tokio::sync::Mutex;
-use tokio::time::Duration;
-use tokio::time::Instant;
+
+use async_trait::async_trait;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tokio::{
+	sync::Mutex,
+	time::{Duration, Instant},
+};
+
+use crate::flow::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Cache<I, B> {
+pub struct Cache<I: NodeTrait> {
 	ttl: Duration,
 	#[serde(skip, default = "Instant::now")]
 	last_run: Instant,
 
 	child: I,
 	#[serde(skip)]
-	cached: Mutex<Option<B>>,
+	cached: Mutex<Option<I::Item>>,
 }
 
-impl<I, B> Cache<I, B>
+impl<I> Cache<I>
 where
-	I: Node<B> + Serialize + DeserializeOwned + Debug,
+	I: NodeTrait,
 {
 	pub fn new(child: I, ttl: Duration) -> Self {
 		Self {
@@ -33,14 +35,14 @@ where
 }
 
 #[async_trait]
-impl<I: Node<B>, B> Node<B> for Cache<I, B>
+impl<I> NodeTrait for Cache<I>
 where
-	I: Sync + Send + Serialize + DeserializeOwned + Debug,
-	B: Clone + Send + Sync,
+	I: NodeTrait,
+	I::Item: Clone + Send + Sync,
 {
-	// type Item = Channel;
+	type Item = I::Item;
 
-	async fn run(&self) -> anyhow::Result<B> {
+	async fn run(&self) -> anyhow::Result<Self::Item> {
 		if Instant::now().duration_since(self.last_run) > self.ttl {
 			Ok(self
 				.cached

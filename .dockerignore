@@ -1,4 +1,7 @@
 /target
-deploy.sh
-Dockerfile
+/deploy.sh
+/Dockerfile
 rustfmt.toml
+*.db*
+.env
+.dockerignore
