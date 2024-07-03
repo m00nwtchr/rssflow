@@ -2,7 +2,6 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rss::Channel;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -21,7 +20,7 @@ use super::filter::{Filter, Kind};
 use super::sanitise::Sanitise;
 
 pub type NodeObject<T> = Box<dyn NodeTrait<Item = T>>;
-pub type RSSNode = NodeObject<Channel>;
+pub type AtomNode = NodeObject<atom_syndication::Feed>;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -153,11 +152,11 @@ impl Node {
 	}
 }
 
-impl From<Node> for RSSNode {
+impl From<Node> for AtomNode {
 	fn from(node: Node) -> Self {
 		match node {
 			Node::Cache { ttl, child } => {
-				let int: RSSNode = (*child).into();
+				let int: AtomNode = (*child).into();
 				Box::new(Cache::new(int, ttl))
 			}
 			Node::Feed { url } => Box::new(Feed::new(url)),
@@ -168,17 +167,17 @@ impl From<Node> for RSSNode {
 				invert,
 				child,
 			} => {
-				let int: RSSNode = (*child).into();
+				let int: AtomNode = (*child).into();
 				Box::new(Filter::new(int, field, filter, invert))
 			}
 			#[cfg(feature = "retrieve")]
 			Node::Retrieve { content, child } => {
-				let int: RSSNode = (*child).into();
+				let int: AtomNode = (*child).into();
 				Box::new(Retrieve::new(int, content))
 			}
 			#[cfg(feature = "sanitise")]
 			Node::Sanitise { child, field } => {
-				let int: RSSNode = (*child).into();
+				let int: AtomNode = (*child).into();
 				Box::new(Sanitise::new(int, field))
 			}
 			#[allow(unreachable_patterns)]
@@ -188,7 +187,7 @@ impl From<Node> for RSSNode {
 }
 
 #[async_trait]
-impl AsyncTryFrom<Node> for RSSNode {
+impl AsyncTryFrom<Node> for AtomNode {
 	type Error = anyhow::Error;
 
 	async fn try_from_async(value: Node) -> Result<Self, Self::Error> {
@@ -198,13 +197,13 @@ impl AsyncTryFrom<Node> for RSSNode {
 				let mut wasm = super::wasm::Wasm::new(wat).await?;
 
 				if let Some(child) = child {
-					let int: RSSNode = (*child).into();
+					let int: AtomNode = (*child).into();
 					wasm = wasm.child(int);
 				}
 
 				Ok(Box::new(wasm))
 			}
-			_ => Ok(RSSNode::from(value)),
+			_ => Ok(AtomNode::from(value)),
 		}
 	}
 }
@@ -226,10 +225,10 @@ mod test {
 	#[tokio::test]
 	pub async fn serde() -> anyhow::Result<()> {
 		let node = Node::Feed {
-			url: "https://www.azaleaellis.com/tag/pgts/feed".parse()?,
+			url: "https://www.azaleaellis.com/tag/pgts/feed/atom".parse()?,
 		}
 		.filter(
-			Field::Description,
+			Field::Summary,
 			Kind::Contains("BELOW IS A SNEAK PEEK OF THIS CONTENT!".to_string()),
 			true,
 		)
@@ -237,7 +236,9 @@ mod test {
 		.sanitise(Field::Content)
 		.cache(Duration::from_secs(60 * 60));
 
-		let _node: RSSNode = node.try_into_async().await?;
+		println!("{}", serde_json::to_string(&node)?);
+
+		let _node: AtomNode = node.try_into_async().await?;
 
 		Ok(())
 	}
@@ -246,7 +247,7 @@ mod test {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Field {
 	Author,
-	Description,
+	Summary,
 	Content,
 	Title,
 	// Uri

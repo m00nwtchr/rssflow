@@ -1,5 +1,5 @@
 [package]
-name = "rss-pipe"
+name = "rssflow"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -22,7 +22,8 @@ url = { version = "2.5", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls"] }
 sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
 
-rss = { version = "2", features = ["url", "serde"] }
+#rss = { version = "2", features = ["url", "with-serde", "atom"] }
+atom_syndication = { version = "0.12", features = ["with-serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

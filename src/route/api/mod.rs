@@ -57,26 +57,35 @@ async fn update_flow(
 	Json(flow): Json<Node>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let json = serde_json::to_string(&flow).map_err(internal_error)?;
-	let rss = flow
+	let atom = flow
 		.try_into_async()
 		.await
 		.map_err(|e: anyhow::Error| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	conn.execute(sqlx::query!(
-		"INSERT INTO flows (name, content) VALUES (?, ?)",
-		name,
-		json
-	))
+	let update = conn
+		.fetch_optional(sqlx::query!("SELECT * FROM flows WHERE name = ?", name))
+		.await
+		.map_err(internal_error)?
+		.is_some();
+
+	conn.execute(if update {
+		sqlx::query!("UPDATE flows SET content = ? WHERE name = ?", json, name)
+	} else {
+		sqlx::query!(
+			"INSERT INTO flows (name, content) VALUES (?, ?)",
+			name,
+			json
+		)
+	})
 	.await
 	.map_err(internal_error)?;
 
-	let update = state
+	state
 		.flows
 		.lock()
 		.await
-		.insert(name, Arc::new(rss))
-		.is_none();
+		.insert(name.clone(), Arc::new(atom));
 
 	Ok(if update {
 		StatusCode::NO_CONTENT

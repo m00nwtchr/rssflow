@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use rss::Channel;
+use reqwest::header;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -18,13 +18,36 @@ impl Feed {
 
 #[async_trait]
 impl NodeTrait for Feed {
-	type Item = Channel;
+	type Item = atom_syndication::Feed;
 
 	#[tracing::instrument(name = "feed_node")]
-	async fn run(&self) -> anyhow::Result<Channel> {
-		let content = reqwest::get(self.url.clone()).await?.bytes().await?;
-		let channel = Channel::read_from(&content[..])?;
+	async fn run(&self) -> anyhow::Result<atom_syndication::Feed> {
+		let response = reqwest::get(self.url.clone()).await?;
 
-		Ok(channel)
+		if let Some(ct) = response.headers().get(header::CONTENT_TYPE) {
+			if ct.eq("application/rss+xml") {
+				// TODO: Handle RSS channels (upgrade to atom)
+			}
+		}
+
+		let content = response.bytes().await?;
+		let feed = atom_syndication::Feed::read_from(&content[..])?;
+
+		Ok(feed)
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use crate::flow::{feed::Feed, node::NodeTrait};
+
+	#[tokio::test]
+	pub async fn websub() -> anyhow::Result<()> {
+		let node = Feed::new("http://push-tester.cweiske.de/feed.php".parse().unwrap());
+
+		let c = node.run().await?;
+
+		// panic!("{}", c.to_string());
+		Ok(())
 	}
 }

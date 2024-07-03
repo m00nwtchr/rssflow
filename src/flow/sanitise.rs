@@ -1,12 +1,12 @@
 use std::thread::available_parallelism;
 
-use super::node::NodeTrait;
-use crate::flow::node::Field;
 use async_trait::async_trait;
+use atom_syndication::Feed;
 use futures::stream::{self, StreamExt};
-use rss::Channel;
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
+
+use super::node::{Field, NodeTrait};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sanitise<I> {
@@ -32,18 +32,18 @@ impl<I: NodeTrait> Sanitise<I> {
 }
 
 #[async_trait]
-impl<I: NodeTrait<Item = Channel>> NodeTrait for Sanitise<I> {
-	type Item = Channel;
+impl<I: NodeTrait<Item = Feed>> NodeTrait for Sanitise<I> {
+	type Item = Feed;
 
-	async fn run(&self) -> anyhow::Result<Channel> {
-		let mut rss = self.child.run().await?;
+	async fn run(&self) -> anyhow::Result<Feed> {
+		let mut atom = self.child.run().await?;
 
 		let span = tracing::info_span!("sanitise_node");
-		rss.items = stream::iter(rss.items.into_iter())
+		atom.entries = stream::iter(atom.entries.into_iter())
 			.map(|mut item| async {
 				let Some(value) = (match self.field {
-					Field::Description => &item.description,
-					Field::Content => &item.content,
+					Field::Summary => item.summary().map(|s| &s.value),
+					Field::Content => item.content().and_then(|c| c.value.as_ref()),
 					_ => unimplemented!(),
 				}) else {
 					return item;
@@ -52,8 +52,16 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Sanitise<I> {
 				let value = self.ammonia.clean(value).to_string();
 
 				match self.field {
-					Field::Description => item.description = Some(value),
-					Field::Content => item.content = Some(value),
+					Field::Summary => {
+						let mut summary = item.summary.unwrap();
+						summary.value = value;
+						item.summary = Some(summary);
+					}
+					Field::Content => {
+						let mut content = item.content.unwrap();
+						content.value = Some(value);
+						item.content = Some(content);
+					}
 					_ => unimplemented!(),
 				}
 
@@ -64,6 +72,6 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Sanitise<I> {
 			.instrument(span)
 			.await;
 
-		Ok(rss)
+		Ok(atom)
 	}
 }

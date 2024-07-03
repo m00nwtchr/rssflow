@@ -6,6 +6,8 @@ mod app;
 mod convert;
 mod flow;
 mod route;
+mod websub;
+mod feed;
 // mod rss;
 
 #[global_allocator]

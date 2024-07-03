@@ -200,18 +200,18 @@ mod pipe {
 
 #[cfg(test)]
 mod test {
+	use atom_syndication::Feed;
 	use super::*;
-	use rss::Channel;
 
 	#[tokio::test]
 	pub async fn wasm() -> anyhow::Result<()> {
-		let flow = Dummy::<Channel>::default()
-			.wasm::<Channel>(include_bytes!("../../wasm_node_test.wasm"))
+		let flow = Dummy::<Feed>::default()
+			.wasm::<Feed>(include_bytes!("../../wasm_node_test.wasm"))
 			.await?;
 
-		let rss = flow.run().await?;
-		println!("{}", serde_json::to_string_pretty(&rss)?);
-		let _rss = flow.run().await?;
+		let atom = flow.run().await?;
+		println!("{}", serde_json::to_string_pretty(&atom)?);
+		let _atom = flow.run().await?;
 
 		Ok(())
 	}

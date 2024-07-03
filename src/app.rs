@@ -9,13 +9,13 @@ use tokio::sync::Mutex;
 
 use crate::{
 	convert::AsyncTryInto,
-	flow::node::{Node, RSSNode},
+	flow::node::{Node, AtomNode},
 	route,
 };
 
 #[allow(clippy::module_name_repetitions)]
 pub struct AppStateInner {
-	pub flows: Mutex<HashMap<String, Arc<RSSNode>>>,
+	pub flows: Mutex<HashMap<String, Arc<AtomNode>>>,
 	pub pool: SqlitePool,
 }
 
@@ -38,7 +38,7 @@ impl FromRef<AppState> for SqlitePool {
 	}
 }
 
-async fn load_flow(row: &SqliteRow) -> anyhow::Result<RSSNode> {
+async fn load_flow(row: &SqliteRow) -> anyhow::Result<AtomNode> {
 	let node: Node = serde_json::de::from_str(&row.get::<String, _>(1))?;
 
 	node.try_into_async().await

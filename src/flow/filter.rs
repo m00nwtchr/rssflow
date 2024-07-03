@@ -1,6 +1,6 @@
 use async_trait::async_trait;
+use atom_syndication::Feed;
 use regex::Regex;
-use rss::Channel;
 use serde::{Deserialize, Serialize};
 use serde_regex;
 
@@ -27,19 +27,19 @@ impl<I: NodeTrait> Filter<I> {
 }
 
 #[async_trait]
-impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
-	type Item = Channel;
+impl<I: NodeTrait<Item = Feed>> NodeTrait for Filter<I> {
+	type Item = Feed;
 
-	async fn run(&self) -> anyhow::Result<Channel> {
-		let mut rss = self.child.run().await?;
+	async fn run(&self) -> anyhow::Result<Feed> {
+		let mut atom = self.child.run().await?;
 
 		let _span = tracing::info_span!("filter_node").entered();
-		rss.items.retain(|item| {
+		atom.entries.retain(|item| {
 			let cmp = match self.field {
-				Field::Author => &item.author,
-				Field::Description => &item.description,
-				Field::Content => &item.content,
-				Field::Title => &item.title,
+				Field::Author => item.authors().first().map(|p| &p.name),
+				Field::Summary => item.summary().map(|s| &s.value),
+				Field::Content => item.content().and_then(|c| c.value.as_ref()),
+				Field::Title => Some(&item.title().value),
 			};
 			let cmp = if let Some(cmp) = cmp { cmp } else { "" };
 
@@ -58,7 +58,7 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
 			}
 		});
 
-		Ok(rss)
+		Ok(atom)
 	}
 }
 

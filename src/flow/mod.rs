@@ -24,7 +24,7 @@ mod test {
 
 		let pipe = Feed::new("https://www.azaleaellis.com/tag/pgts/feed".parse()?)
 			.filter(
-				Field::Description,
+				Field::Summary,
 				Kind::Contains("BELOW IS A SNEAK PEEK OF THIS CONTENT!".parse()?),
 				true,
 			)

@@ -1,8 +1,8 @@
 use std::cmp::min;
 
 use async_trait::async_trait;
+use atom_syndication::{ContentBuilder, Feed};
 use futures::stream::{self, StreamExt};
-use rss::Channel;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
@@ -23,41 +23,48 @@ impl<I: NodeTrait> Retrieve<I> {
 	}
 }
 
-async fn get_content(mut item: rss::Item, selector: &Selector) -> anyhow::Result<rss::Item> {
-	let Some(link) = &item.link else {
-		return Ok(item);
+async fn get_content(
+	mut entry: atom_syndication::Entry,
+	selector: &Selector,
+) -> anyhow::Result<atom_syndication::Entry> {
+	let Some(link) = entry.links().iter().find(|l| l.rel().eq("alternate")) else {
+		return Ok(entry);
 	};
 
-	tracing::info!("{link}");
-	let content = reqwest::get(link).await?.text().await?;
+	let content = reqwest::get(link.href()).await?.text().await?;
 	let html = Html::parse_document(&content);
 	let content: String = html.select(selector).map(|s| s.inner_html()).collect();
 
 	// item.description = None;
-	item.content = Some(content);
+	entry.set_content(
+		ContentBuilder::default()
+			.value(content)
+			.content_type("html".to_string())
+			.build(),
+	);
 
-	Ok(item)
+	Ok(entry)
 }
 
 #[async_trait]
-impl<I: NodeTrait<Item = Channel>> NodeTrait for Retrieve<I> {
-	type Item = Channel;
+impl<I: NodeTrait<Item = Feed>> NodeTrait for Retrieve<I> {
+	type Item = Feed;
 
-	async fn run(&self) -> anyhow::Result<Channel> {
+	async fn run(&self) -> anyhow::Result<Feed> {
 		let span = tracing::info_span!("retrieve_node");
-		let mut rss = self.child.run().await?;
+		let mut atom = self.child.run().await?;
 
-		let n = min(rss.items.len(), 6); // Avoiding too high values to prevent spamming the target site.
-		let items: Vec<anyhow::Result<rss::Item>> = stream::iter(rss.items.into_iter())
+		let n = min(atom.entries.len(), 6); // Avoiding too high values to prevent spamming the target site.
+		let items: Vec<anyhow::Result<atom_syndication::Entry>> = stream::iter(atom.entries.into_iter())
 			.map(|item| get_content(item, &self.content))
 			.buffered(n)
 			.collect()
 			.instrument(span.clone())
 			.await;
 		let _enter = span.enter();
-		rss.items = items.into_iter().collect::<anyhow::Result<_>>()?;
+		atom.entries = items.into_iter().collect::<anyhow::Result<_>>()?;
 
-		Ok(rss)
+		Ok(atom)
 	}
 }
 

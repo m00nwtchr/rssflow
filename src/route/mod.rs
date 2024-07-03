@@ -2,7 +2,6 @@ use axum::{
 	http::{header, HeaderValue, StatusCode},
 	response::{IntoResponse, Response},
 };
-use rss::Channel;
 
 mod api;
 mod flow;
@@ -19,7 +18,7 @@ where
 
 static APPLICATION_ATOM_XML: HeaderValue = HeaderValue::from_static("application/atom+xml");
 
-struct Atom(Channel);
+struct Atom(atom_syndication::Feed);
 impl IntoResponse for Atom {
 	fn into_response(self) -> Response {
 		(
