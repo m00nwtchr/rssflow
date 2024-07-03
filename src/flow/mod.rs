@@ -1,4 +1,5 @@
 pub mod cache;
+mod dummy;
 pub mod feed;
 #[cfg(feature = "filter")]
 pub mod filter;
@@ -9,15 +10,11 @@ pub mod retrieve;
 pub mod sanitise;
 #[cfg(feature = "wasm")]
 pub mod wasm;
-mod dummy;
 
 #[cfg(test)]
 mod test {
 	use super::node::{Field, NodeTrait};
-	use crate::flow::{
-		feed::Feed,
-		filter::Kind,
-	};
+	use crate::flow::{feed::Feed, filter::Kind};
 	use scraper::Selector;
 	use std::time::Duration;
 
@@ -46,8 +43,6 @@ mod test {
 		// sleep(Duration::from_secs(11)).await;
 		// let channel = &pipe.run().await?;
 		// tracing::info!("{}", channel.to_string());
-
-	
 
 		Ok(())
 	}

@@ -1,8 +1,7 @@
 use axum::{
-	http::{header, HeaderValue},
+	http::{header, HeaderValue, StatusCode},
 	response::{IntoResponse, Response},
 };
-use axum::http::StatusCode;
 use rss::Channel;
 
 mod api;

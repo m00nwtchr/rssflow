@@ -1,12 +1,12 @@
 use std::thread::available_parallelism;
 
+use super::node::NodeTrait;
+use crate::flow::node::Field;
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use rss::Channel;
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
-use crate::flow::node::Field;
-use super::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sanitise<I> {
@@ -32,7 +32,7 @@ impl<I: NodeTrait> Sanitise<I> {
 }
 
 #[async_trait]
-impl<'a, I: NodeTrait<Item = Channel>> NodeTrait for Sanitise<I> {
+impl<I: NodeTrait<Item = Channel>> NodeTrait for Sanitise<I> {
 	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {
