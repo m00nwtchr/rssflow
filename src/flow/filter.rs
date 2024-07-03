@@ -33,6 +33,7 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let mut rss = self.child.run().await?;
 
+		let _span = tracing::info_span!("filter_node").entered();
 		rss.items.retain(|item| {
 			let cmp = match self.field {
 				Field::Author => &item.author,

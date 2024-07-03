@@ -181,6 +181,7 @@ impl From<Node> for RSSNode {
 				let int: RSSNode = (*child).into();
 				Box::new(Sanitise::new(int, field))
 			}
+			#[allow(unreachable_patterns)]
 			_ => unimplemented!(),
 		}
 	}
@@ -236,8 +237,7 @@ mod test {
 		)
 		.retrieve(Selector::parse(".entry-content").unwrap())
 		.sanitise(Field::Content)
-		.cache(Duration::from_secs(60 * 60))
-		.wasm(include_bytes!("../../wasm_node_test.wasm").to_vec());
+		.cache(Duration::from_secs(60 * 60));
 
 		// tracing::info!("{}", serde_json::to_string_pretty(&node)?);
 		let node: RSSNode = node.try_into_async().await?;

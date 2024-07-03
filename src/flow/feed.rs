@@ -20,11 +20,10 @@ impl Feed {
 impl NodeTrait for Feed {
 	type Item = Channel;
 
+	#[tracing::instrument(name = "feed_node")]
 	async fn run(&self) -> anyhow::Result<Channel> {
 		let content = reqwest::get(self.url.clone()).await?.bytes().await?;
 		let channel = Channel::read_from(&content[..])?;
-
-		tracing::info!("Get {}", &self.url);
 
 		Ok(channel)
 	}

@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::Mutex;
+use tracing::Instrument;
 use wasmtime::{Config, Engine, Linker, Module, Store, TypedFunc};
 use wasmtime_wasi::{preview1, preview1::WasiP1Ctx, WasiCtxBuilder};
 
@@ -23,6 +24,7 @@ pub struct Wasm<O, T: NodeTrait = Dummy> {
 }
 
 impl<O, T: NodeTrait> Wasm<O, T> {
+	#[tracing::instrument(name = "new_wasm_node")]
 	pub async fn new(wat: impl AsRef<[u8]>) -> anyhow::Result<Self> {
 		let engine = Engine::new(Config::new().async_support(true))?;
 		let module = Module::new(&engine, wat)?;
@@ -74,15 +76,22 @@ where
 	type Item = O;
 
 	async fn run(&self) -> anyhow::Result<Self::Item> {
+		let span = tracing::info_span!("wasm_node");
+
 		if let Some(child) = &self.child {
-			let json = serde_json::to_string(&child.run().await?)?;
+			let input = &child.run().await?;
+
+			let _enter = span.enter();
+			let json = serde_json::to_string(input)?;
 			self.stdin.buffer.lock().unwrap().write_str(&json)?;
 		}
 
 		self.func
 			.call_async(&mut *self.store.lock().await, ())
+			.instrument(span.clone())
 			.await?;
 
+		let _enter = span.enter();
 		let out = serde_json::from_slice(&self.stdout.buffer.lock().unwrap())?;
 		self.stdout.clear();
 

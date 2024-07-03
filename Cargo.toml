@@ -7,40 +7,38 @@ publish = false
 [profile.release]
 opt-level = 3
 lto = "fat"
+strip = true
 
 [features]
-default = ["filter", "retrieve", "sanitise", "wasm"]
+default = ["filter", "retrieve", "sanitise"]
 filter = ["dep:regex", "dep:serde_regex"]
 retrieve = ["dep:scraper"]
 sanitise = ["dep:ammonia"]
-wasm = ["dep:wasmtime", "dep:wasmtime-wasi"]
-
-
+wasm = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:bytes"]
 
 [dependencies]
-anyhow = "1"
-async-trait = "0.1"
-
 axum = { version = "0.7", features = ["macros"] }
-bytes = "1.6"
-futures = "0.3"
-mimalloc = "0.1"
+url = { version = "2.5", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls"] }
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
+
 rss = { version = "2", features = ["url", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
+async-trait = "0.1"
+futures = "0.3"
+mimalloc = "0.1"
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-#typetag = "0.2.16"
-url = { version = "2.5", features = ["serde"] }
+anyhow = "1"
 
 ammonia = { version = "4.0", optional = true }
+bytes = { version = "1.6", optional = true }
 regex = { version = "1.10", optional = true }
-scraper = { version = "0.19", optional = true }
+scraper = { version = "0.19", optional = true, git = "https://github.com/causal-agent/scraper.git" }
 serde_regex = { version = "1", optional = true }
 wasmtime = { version = "22", optional = true }
 wasmtime-wasi = { version = "22", optional = true }

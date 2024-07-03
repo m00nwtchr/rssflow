@@ -44,16 +44,17 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Retrieve<I> {
 	type Item = Channel;
 
 	async fn run(&self) -> anyhow::Result<Channel> {
-		let mut rss = self.child.run().await?;
-		let n = min(rss.items.len(), 6); // Avoiding too high values to prevent spamming the target site.
-
 		let span = tracing::info_span!("retrieve_node");
+		let mut rss = self.child.run().await?;
+
+		let n = min(rss.items.len(), 6); // Avoiding too high values to prevent spamming the target site.
 		let items: Vec<anyhow::Result<rss::Item>> = stream::iter(rss.items.into_iter())
 			.map(|item| get_content(item, &self.content))
 			.buffered(n)
 			.collect()
-			.instrument(span)
+			.instrument(span.clone())
 			.await;
+		let _enter = span.enter();
 		rss.items = items.into_iter().collect::<anyhow::Result<_>>()?;
 
 		Ok(rss)
