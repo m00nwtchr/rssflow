@@ -1,19 +1,24 @@
 #![allow(clippy::module_name_repetitions)]
 use std::time::Duration;
 
-use super::{
-	cache::Cache,
-	feed::Feed,
-	filter::{Field, Filter, Kind},
-	retrieve::{serde_selector, Retrieve},
-	sanitise::Sanitise,
-};
-use crate::convert::{AsyncFrom, AsyncTryFrom};
 use async_trait::async_trait;
 use rss::Channel;
-use scraper::Selector;
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+use super::{cache::Cache, feed::Feed};
+use crate::convert::AsyncTryFrom;
+
+#[cfg(feature = "retrieve")]
+use super::retrieve::{serde_selector, Retrieve};
+#[cfg(feature = "retrieve")]
+use scraper::Selector;
+
+#[cfg(feature = "filter")]
+use super::filter::{Filter, Kind};
+
+#[cfg(feature = "sanitise")]
+use super::sanitise::Sanitise;
 
 pub type NodeObject<T> = Box<dyn NodeTrait<Item = T>>;
 pub type RSSNode = NodeObject<Channel>;
@@ -29,6 +34,7 @@ pub enum Node {
 	Feed {
 		url: Url,
 	},
+	#[cfg(feature = "filter")]
 	Filter {
 		field: Field,
 		filter: Kind,
@@ -36,12 +42,14 @@ pub enum Node {
 
 		child: Box<Node>,
 	},
+	#[cfg(feature = "retrieve")]
 	Retrieve {
 		#[serde(with = "serde_selector")]
 		content: Selector,
 
 		child: Box<Node>,
 	},
+	#[cfg(feature = "sanitise")]
 	Sanitise {
 		field: Field,
 
@@ -69,6 +77,7 @@ pub trait NodeTrait: Sync + Send {
 		Cache::new(self, ttl)
 	}
 
+	#[cfg(feature = "filter")]
 	fn filter(self, field: Field, filter: Kind, invert: bool) -> Filter<Self>
 	where
 		Self: Sized,
@@ -76,6 +85,7 @@ pub trait NodeTrait: Sync + Send {
 		Filter::new(self, field, filter, invert)
 	}
 
+	#[cfg(feature = "retrieve")]
 	fn retrieve(self, content: Selector) -> Retrieve<Self>
 	where
 		Self: Sized,
@@ -83,6 +93,7 @@ pub trait NodeTrait: Sync + Send {
 		Retrieve::new(self, content)
 	}
 
+	#[cfg(feature = "sanitise")]
 	fn sanitise(self, field: Field) -> Sanitise<Self>
 	where
 		Self: Sized,
@@ -107,6 +118,7 @@ impl Node {
 		}
 	}
 
+	#[cfg(feature = "filter")]
 	pub fn filter(self, field: Field, filter: Kind, invert: bool) -> Self {
 		Self::Filter {
 			child: Box::new(self),
@@ -116,6 +128,7 @@ impl Node {
 		}
 	}
 
+	#[cfg(feature = "retrieve")]
 	pub fn retrieve(self, content: Selector) -> Self {
 		Self::Retrieve {
 			child: Box::new(self),
@@ -123,6 +136,7 @@ impl Node {
 		}
 	}
 
+	#[cfg(feature = "sanitise")]
 	pub fn sanitise(self, field: Field) -> Self {
 		Self::Sanitise {
 			child: Box::new(self),
@@ -147,6 +161,7 @@ impl From<Node> for RSSNode {
 				Box::new(Cache::new(int, ttl))
 			}
 			Node::Feed { url } => Box::new(Feed::new(url)),
+			#[cfg(feature = "filter")]
 			Node::Filter {
 				field,
 				filter,
@@ -156,10 +171,12 @@ impl From<Node> for RSSNode {
 				let int: RSSNode = (*child).into();
 				Box::new(Filter::new(int, field, filter, invert))
 			}
+			#[cfg(feature = "retrieve")]
 			Node::Retrieve { content, child } => {
 				let int: RSSNode = (*child).into();
 				Box::new(Retrieve::new(int, content))
 			}
+			#[cfg(feature = "sanitise")]
 			Node::Sanitise { child, field } => {
 				let int: RSSNode = (*child).into();
 				Box::new(Sanitise::new(int, field))
@@ -203,7 +220,7 @@ impl<T> NodeTrait for NodeObject<T> {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::convert::{AsyncInto, AsyncTryInto};
+	use crate::convert::AsyncTryInto;
 
 	#[tokio::test]
 	pub async fn serde() -> anyhow::Result<()> {
@@ -228,4 +245,13 @@ mod test {
 
 		Ok(())
 	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Field {
+	Author,
+	Description,
+	Content,
+	Title,
+	// Uri
 }

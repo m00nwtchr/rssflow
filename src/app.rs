@@ -1,22 +1,17 @@
-use crate::{
-	convert::AsyncTryInto,
-	flow,
-	flow::{
-		filter::{Field, Kind},
-		node::{Node, NodeTrait, RSSNode},
-	},
-	route,
-};
+use std::{collections::HashMap, env::var, ops::Deref, sync::Arc};
+
 use axum::{extract::FromRef, routing::get, Router};
-use futures::StreamExt;
-use rss::Channel;
-use scraper::Selector;
 use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow},
 	Executor, Row, SqlitePool,
 };
-use std::{collections::HashMap, env::var, future::Future, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
+
+use crate::{
+	convert::AsyncTryInto,
+	flow::node::{Node, RSSNode},
+	route,
+};
 
 #[allow(clippy::module_name_repetitions)]
 pub struct AppStateInner {

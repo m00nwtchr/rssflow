@@ -5,8 +5,8 @@ use futures::stream::{self, StreamExt};
 use rss::Channel;
 use serde::{Deserialize, Serialize};
 use tracing::Instrument;
-
-use super::{filter::Field, node::NodeTrait};
+use crate::flow::node::Field;
+use super::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sanitise<I> {

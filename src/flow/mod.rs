@@ -1,8 +1,11 @@
 pub mod cache;
 pub mod feed;
+#[cfg(feature = "filter")]
 pub mod filter;
 pub mod node;
+#[cfg(feature = "retrieve")]
 pub mod retrieve;
+#[cfg(feature = "sanitise")]
 pub mod sanitise;
 #[cfg(feature = "wasm")]
 pub mod wasm;
@@ -10,10 +13,10 @@ mod dummy;
 
 #[cfg(test)]
 mod test {
-	use super::node::NodeTrait;
+	use super::node::{Field, NodeTrait};
 	use crate::flow::{
 		feed::Feed,
-		filter::{Field, Kind},
+		filter::Kind,
 	};
 	use scraper::Selector;
 	use std::time::Duration;

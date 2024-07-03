@@ -2,8 +2,9 @@ use async_trait::async_trait;
 use regex::Regex;
 use rss::Channel;
 use serde::{Deserialize, Serialize};
+use serde_regex;
 
-use super::node::NodeTrait;
+use super::node::{Field, NodeTrait};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Filter<I> {
@@ -61,18 +62,7 @@ impl<I: NodeTrait<Item = Channel>> NodeTrait for Filter<I> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Field {
-	Author,
-	Description,
-	Content,
-	Title,
-	// Uri
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub enum Kind {
 	Regex(#[serde(with = "serde_regex")] Regex),
 	Contains(String),
 }
-
-use serde_regex;
