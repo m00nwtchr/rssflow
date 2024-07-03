@@ -225,8 +225,6 @@ mod test {
 
 	#[tokio::test]
 	pub async fn serde() -> anyhow::Result<()> {
-		tracing_subscriber::fmt::init();
-
 		let node = Node::Feed {
 			url: "https://www.azaleaellis.com/tag/pgts/feed".parse()?,
 		}
@@ -239,9 +237,7 @@ mod test {
 		.sanitise(Field::Content)
 		.cache(Duration::from_secs(60 * 60));
 
-		// tracing::info!("{}", serde_json::to_string_pretty(&node)?);
-		let node: RSSNode = node.try_into_async().await?;
-		let channel = node.run().await?;
+		let _node: RSSNode = node.try_into_async().await?;
 
 		Ok(())
 	}

@@ -24,7 +24,7 @@ pub struct Wasm<O, T: NodeTrait = Dummy> {
 }
 
 impl<O, T: NodeTrait> Wasm<O, T> {
-	#[tracing::instrument(name = "new_wasm_node")]
+	#[tracing::instrument(name = "new_wasm_node", skip(wat))]
 	pub async fn new(wat: impl AsRef<[u8]>) -> anyhow::Result<Self> {
 		let engine = Engine::new(Config::new().async_support(true))?;
 		let module = Module::new(&engine, wat)?;
@@ -201,18 +201,18 @@ mod pipe {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::flow::feed::Feed;
 	use rss::Channel;
 
 	#[tokio::test]
 	pub async fn wasm() -> anyhow::Result<()> {
-		let flow = Feed::new("https://www.azaleaellis.com/tag/pgts/feed".parse()?)
+		let flow = Dummy::<Channel>::default()
 			.wasm::<Channel>(include_bytes!("../../wasm_node_test.wasm"))
 			.await?;
 
 		let rss = flow.run().await?;
 		println!("{}", serde_json::to_string_pretty(&rss)?);
-		let rss = flow.run().await?;
+		let _rss = flow.run().await?;
+
 		Ok(())
 	}
 }
