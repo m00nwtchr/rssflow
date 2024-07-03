@@ -6,8 +6,9 @@ use super::{
 	feed::Feed,
 	filter::{Field, Filter, Kind},
 	retrieve::{serde_selector, Retrieve},
+	sanitise::Sanitise,
 };
-use crate::flow::sanitise::Sanitise;
+use crate::convert::{AsyncFrom, AsyncTryFrom};
 use async_trait::async_trait;
 use rss::Channel;
 use scraper::Selector;
@@ -46,6 +47,13 @@ pub enum Node {
 
 		child: Box<Node>,
 	},
+	#[cfg(feature = "wasm")]
+	Wasm {
+		wat: Vec<u8>,
+
+		#[serde(skip_serializing_if = "Option::is_none")]
+		child: Option<Box<Node>>,
+	},
 }
 
 #[async_trait]
@@ -81,6 +89,14 @@ pub trait NodeTrait: Sync + Send {
 	{
 		Sanitise::new(self, field)
 	}
+
+	#[cfg(feature = "wasm")]
+	async fn wasm<T>(self, wat: &[u8]) -> anyhow::Result<super::wasm::Wasm<T, Self>>
+	where
+		Self: Sized,
+	{
+		Ok(super::wasm::Wasm::new(wat).await?.child(self))
+	}
 }
 
 impl Node {
@@ -111,6 +127,14 @@ impl Node {
 		Self::Sanitise {
 			child: Box::new(self),
 			field,
+		}
+	}
+
+	#[cfg(feature = "wasm")]
+	pub fn wasm(self, wat: Vec<u8>) -> Self {
+		Self::Wasm {
+			child: Some(Box::new(self)),
+			wat,
 		}
 	}
 }
@@ -146,6 +170,28 @@ impl From<Node> for RSSNode {
 }
 
 #[async_trait]
+impl AsyncTryFrom<Node> for RSSNode {
+	type Error = anyhow::Error;
+
+	async fn try_from_async(value: Node) -> Result<Self, Self::Error> {
+		match value {
+			#[cfg(feature = "wasm")]
+			Node::Wasm { child, wat } => {
+				let mut wasm = super::wasm::Wasm::new(wat).await?;
+
+				if let Some(child) = child {
+					let int: RSSNode = (*child).into();
+					wasm = wasm.child(int);
+				}
+
+				Ok(Box::new(wasm))
+			}
+			_ => Ok(RSSNode::from(value)),
+		}
+	}
+}
+
+#[async_trait]
 impl<T> NodeTrait for NodeObject<T> {
 	type Item = T;
 
@@ -157,6 +203,7 @@ impl<T> NodeTrait for NodeObject<T> {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use crate::convert::{AsyncInto, AsyncTryInto};
 
 	#[tokio::test]
 	pub async fn serde() -> anyhow::Result<()> {
@@ -172,9 +219,12 @@ mod test {
 		)
 		.retrieve(Selector::parse(".entry-content").unwrap())
 		.sanitise(Field::Content)
-		.cache(Duration::from_secs(60 * 60));
+		.cache(Duration::from_secs(60 * 60))
+		.wasm(include_bytes!("../../wasm_node_test.wasm").to_vec());
 
-		tracing::info!("{}", serde_json::to_string_pretty(&node)?);
+		// tracing::info!("{}", serde_json::to_string_pretty(&node)?);
+		let node: RSSNode = node.try_into_async().await?;
+		let channel = node.run().await?;
 
 		Ok(())
 	}

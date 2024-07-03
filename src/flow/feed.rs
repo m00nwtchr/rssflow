@@ -1,8 +1,9 @@
-use crate::flow::node::NodeTrait;
 use async_trait::async_trait;
 use rss::Channel;
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+use super::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Feed {

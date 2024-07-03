@@ -1,4 +1,4 @@
-use crate::{app::AppState, flow::node::Node, route::internal_error};
+use crate::{app::AppState, convert::AsyncTryInto, flow::node::Node, route::internal_error};
 use axum::{
 	extract::{Path, State},
 	http::StatusCode,
@@ -57,6 +57,10 @@ async fn update_flow(
 	Json(flow): Json<Node>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let json = serde_json::to_string(&flow).map_err(internal_error)?;
+	let rss = flow
+		.try_into_async()
+		.await
+		.map_err(|e: anyhow::Error| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
 	conn.execute(sqlx::query!(
@@ -71,7 +75,7 @@ async fn update_flow(
 		.flows
 		.lock()
 		.await
-		.insert(name, Arc::new(flow.into()))
+		.insert(name, Arc::new(rss))
 		.is_none();
 
 	Ok(if update {

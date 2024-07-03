@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use tokio::{
 	sync::Mutex,
 	time::{Duration, Instant},
 };
 
-use crate::flow::node::NodeTrait;
+use super::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Cache<I: NodeTrait> {

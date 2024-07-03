@@ -1,4 +1,5 @@
 use crate::{
+	convert::AsyncTryInto,
 	flow,
 	flow::{
 		filter::{Field, Kind},
@@ -7,13 +8,14 @@ use crate::{
 	route,
 };
 use axum::{extract::FromRef, routing::get, Router};
+use futures::StreamExt;
 use rss::Channel;
 use scraper::Selector;
 use sqlx::{
-	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow},
 	Executor, Row, SqlitePool,
 };
-use std::{collections::HashMap, env::var, ops::Deref, sync::Arc};
+use std::{collections::HashMap, env::var, future::Future, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
 #[allow(clippy::module_name_repetitions)]
@@ -41,6 +43,12 @@ impl FromRef<AppState> for SqlitePool {
 	}
 }
 
+async fn load_flow(row: &SqliteRow) -> anyhow::Result<RSSNode> {
+	let node: Node = serde_json::de::from_str(&row.get::<String, _>(1))?;
+
+	node.try_into_async().await
+}
+
 pub async fn app() -> anyhow::Result<Router> {
 	let mut flows = HashMap::new();
 
@@ -57,8 +65,12 @@ pub async fn app() -> anyhow::Result<Router> {
 	let mut conn = pool.acquire().await?;
 
 	for row in conn.fetch_all(sqlx::query!("SELECT * FROM flows")).await? {
-		let node: Node = serde_json::de::from_str(&row.get::<String, _>(1))?;
-		flows.insert(row.get::<String, _>(0), Arc::new(node.into()));
+		let k = row.get::<String, _>(0);
+		if let Ok(flow) = load_flow(&row).await {
+			flows.insert(k, Arc::new(flow));
+		} else {
+			tracing::error!("Saved flow `{k}` failed to load");
+		}
 	}
 
 	let state = AppState(Arc::new(AppStateInner {
@@ -71,6 +83,6 @@ pub async fn app() -> anyhow::Result<Router> {
 			.nest("/api", route::api())
 			.nest("/flow", route::flow())
 			.route("/", get(|| async { "Hello, World!".to_string() }))
-			.with_state(state), // .with_state(config)
+			.with_state(state), // .with_state(config.toml)
 	)
 }
