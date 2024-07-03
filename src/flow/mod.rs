@@ -1,3 +1,4 @@
+pub mod archive;
 pub mod cache;
 mod dummy;
 pub mod feed;
