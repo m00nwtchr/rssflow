@@ -9,4 +9,4 @@ jobs:
         components: clippy
     - uses: actions/checkout@master
     - name: Clippy
-      run: cargo clippy -- -Dwarnings
+      run: cargo clippy --workspace --all-features -- -Dwarnings
