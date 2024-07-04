@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use derive_more::From;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use strum::EnumDiscriminants;
+use strum::{Display, EnumDiscriminants};
 
 use super::feed::Feed;
 use crate::websub::WebSub;
@@ -27,6 +27,12 @@ pub trait NodeTrait: Sync + Send {
 	}
 	fn outputs(&self) -> Box<[DataKind]> {
 		Box::new([])
+	}
+
+	fn is_dirty(&self) -> bool {
+		let inputs = self.inputs();
+
+		inputs.is_empty() || inputs.iter().any(|i| i.is_dirty())
 	}
 
 	async fn run(&self) -> anyhow::Result<()>;
@@ -70,6 +76,21 @@ impl NodeTrait for Node {
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.outputs(),
 			Self::Other(n) => n.outputs(),
+			_ => unimplemented!(),
+		}
+	}
+
+	fn is_dirty(&self) -> bool {
+		match self {
+			Self::Feed(n) => n.is_dirty(),
+			Self::Filter(n) => n.is_dirty(),
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.is_dirty(),
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.is_dirty(),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.is_dirty(),
+			Self::Other(n) => n.is_dirty(),
 			_ => unimplemented!(),
 		}
 	}
@@ -120,7 +141,7 @@ impl NodeTrait for Node {
 	}
 }
 
-#[derive(Serialize, Deserialize, From)]
+#[derive(Serialize, Deserialize, From, Display)]
 #[serde(tag = "type")]
 pub enum Node {
 	Feed(Feed),
@@ -167,16 +188,22 @@ impl Data {
 	}
 }
 
+#[derive(Default, Debug)]
+pub struct IOInner {
+	data: Option<Data>,
+	dirty: bool,
+}
+
 #[derive(Debug)]
 pub struct IO {
-	inner: Arc<RwLock<Option<Data>>>,
+	inner: Arc<RwLock<IOInner>>,
 	kind: DataKind,
 }
 
 impl IO {
 	pub fn new(kind: DataKind) -> Self {
 		Self {
-			inner: Arc::new(RwLock::new(None)),
+			inner: Arc::default(),
 			kind,
 		}
 	}
@@ -188,7 +215,9 @@ impl IO {
 	pub fn accept(&self, data: impl Into<Data>) -> anyhow::Result<()> {
 		let data = data.into();
 		if data.is_kind(&self.kind) {
-			self.inner.write().replace(data);
+			let mut inner = self.inner.write();
+			inner.data.replace(data);
+			inner.dirty = true;
 			Ok(())
 		} else {
 			Err(anyhow!("Wrong data type"))
@@ -196,22 +225,31 @@ impl IO {
 	}
 
 	pub fn get(&self) -> Option<Data> {
-		self.inner.read().clone()
+		self.inner.read().data.clone()
 	}
 
 	pub fn is_some(&self) -> bool {
-		self.inner.read().is_some()
+		self.inner.read().data.is_some()
+	}
+
+	pub fn is_dirty(&self) -> bool {
+		let read = self.inner.read();
+		read.dirty || read.data.is_none()
+	}
+
+	pub fn clear(&self) {
+		self.inner.write().dirty = false;
 	}
 }
 
 pub fn collect_inputs(inputs: &Vec<Arc<IO>>) -> Option<Vec<Data>> {
 	let mut data = Vec::with_capacity(inputs.len());
-	for input in inputs.iter() {
+	for input in inputs {
 		if !input.is_some() {
 			return None;
 		}
 
-		data.push(input.get().unwrap())
+		data.push(input.get().unwrap());
 	}
 
 	Some(data)

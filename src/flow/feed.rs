@@ -40,12 +40,12 @@ impl NodeTrait for Feed {
 		Box::new([DataKind::Feed])
 	}
 
+	fn is_dirty(&self) -> bool {
+		self.last_fetch.elapsed() > self.ttl || !self.output.is_some()
+	}
+
 	#[tracing::instrument(name = "feed_node")]
 	async fn run(&self) -> anyhow::Result<()> {
-		if Instant::now() - self.last_fetch < self.ttl && self.output.is_some() {
-			return Ok(());
-		}
-
 		let response = reqwest::get(self.url.clone()).await?;
 
 		if let Some(ct) = response.headers().get(header::CONTENT_TYPE) {

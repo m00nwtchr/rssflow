@@ -37,6 +37,7 @@ async fn get_content(
 		return Ok(entry);
 	};
 
+	tracing::info!("HTTP GET {}", link.href());
 	let content = reqwest::get(link.href()).await?.text().await?;
 	let html = Html::parse_document(&content);
 	let content: String = html.select(selector).map(|s| s.inner_html()).collect();
@@ -62,7 +63,7 @@ impl NodeTrait for Retrieve {
 		Box::new([DataKind::Feed])
 	}
 
-	#[tracing::instrument(name = "retrieve_node")]
+	#[tracing::instrument(name = "retrieve_node", skip(self))]
 	async fn run(&self) -> anyhow::Result<()> {
 		let Some(Data::Feed(mut atom)) = self.input.get() else {
 			return Err(anyhow!(""));

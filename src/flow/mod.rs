@@ -30,7 +30,15 @@ impl Flow {
 	pub async fn run(&self) -> anyhow::Result<Option<Data>> {
 		let nodes = self.nodes.lock().await;
 		for node in nodes.iter() {
-			node.run().await?
+			if node.is_dirty() {
+				tracing::info!("Running node: {node}");
+				node.run().await?;
+
+				let inputs = node.inputs();
+				for io in inputs.iter().filter(|i| i.is_dirty()) {
+					io.clear();
+				}
+			}
 		}
 		Ok(self.output.get())
 	}
@@ -67,7 +75,10 @@ impl FlowBuilder {
 			}
 		}
 
-		Flow { nodes: Mutex::new(nodes), output }
+		Flow {
+			nodes: Mutex::new(nodes),
+			output,
+		}
 	}
 }
 
@@ -108,18 +119,18 @@ mod test {
 
 		println!("{}", serde_json::to_string_pretty(&builder)?);
 
-		let flow = builder.simple(DataKind::Feed);
-		let Some(Data::Feed(atom)) = flow.run().await? else {
-			return Err(anyhow!(""));
-		};
-
-		println!("{}", atom.to_string());
-
-		let Some(Data::Feed(atom)) = flow.run().await? else {
-			return Err(anyhow!(""));
-		};
-
-		println!("Wow");
+		// let flow = builder.simple(DataKind::Feed);
+		// let Some(Data::Feed(atom)) = flow.run().await? else {
+		// 	return Err(anyhow!(""));
+		// };
+		//
+		// println!("{}", atom.to_string());
+		//
+		// let Some(Data::Feed(atom)) = flow.run().await? else {
+		// 	return Err(anyhow!(""));
+		// };
+		//
+		// println!("Wow");
 
 		//
 		// let channel = &pipe.run().await?;

@@ -8,6 +8,7 @@ use axum::{
 
 use crate::{app::AppState, flow::node::Data, route::Atom};
 
+#[tracing::instrument(name = "run_flow_handler", skip(state))]
 pub async fn run(
 	Path(name): Path<String>,
 	State(state): State<AppState>,

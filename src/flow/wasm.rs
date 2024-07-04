@@ -1,9 +1,8 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::{fmt::Write, sync::Arc};
 use serde::{Deserialize, Serialize};
+use std::{fmt::Write, sync::Arc};
 use tokio::sync::Mutex;
-use tracing::Instrument;
 use wasmtime::{Config, Engine, Linker, Module, Store, TypedFunc};
 use wasmtime_wasi::{preview1, preview1::WasiP1Ctx, WasiCtxBuilder};
 
@@ -110,7 +109,10 @@ impl NodeTrait for Wasm {
 	}
 
 	fn set_outputs(&mut self, outputs: Vec<Arc<IO>>) {
-		self.outputs = outputs
+		self.outputs = outputs;
+	}
+	fn output(&mut self, output: Arc<IO>) {
+		self.outputs = vec![output];
 	}
 }
 

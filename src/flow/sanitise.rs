@@ -46,7 +46,7 @@ impl NodeTrait for Sanitise {
 		Box::new([])
 	}
 
-	#[tracing::instrument(name = "sanitise_node")]
+	#[tracing::instrument(name = "sanitise_node", skip(self))]
 	async fn run(&self) -> anyhow::Result<()> {
 		let Some(Data::Feed(mut atom)) = self.input.get() else {
 			return Err(anyhow!(""));

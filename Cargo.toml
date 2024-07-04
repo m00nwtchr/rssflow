@@ -37,6 +37,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 
 uuid = { version = "1.9.1", features = ["serde", "v7"] }
+strum = { version = "0.26", features = ["derive"] }
+derive_more = "0.99"
+parking_lot = "0.12"
 
 ammonia = { version = "4.0", optional = true }
 bytes = { version = "1.6", optional = true }
@@ -45,7 +48,3 @@ scraper = { version = "0.19", optional = true, git = "https://github.com/causal-
 serde_regex = { version = "1", optional = true }
 wasmtime = { version = "22", optional = true }
 wasmtime-wasi = { version = "22", optional = true }
-strum = { version = "0.26.3", features = ["derive"] }
-derive_more = "0.99.18"
-parking_lot = "0.12.3"
-
