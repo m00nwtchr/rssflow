@@ -5,9 +5,11 @@ use axum::{
 
 mod api;
 mod flow;
+mod websub;
 
 pub use api::router as api;
 pub use flow::router as flow;
+pub use websub::router as websub;
 
 fn internal_error<E>(err: E) -> (StatusCode, String)
 where

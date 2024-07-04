@@ -12,7 +12,7 @@ use crate::convert::AsyncTryFrom;
 use super::retrieve::{serde_selector, Retrieve};
 #[cfg(feature = "retrieve")]
 use scraper::Selector;
-
+use crate::websub::WebSub;
 #[cfg(feature = "filter")]
 use super::filter::{Filter, Kind};
 
@@ -68,6 +68,10 @@ pub trait NodeTrait: Sync + Send {
 	type Item;
 
 	async fn run(&self) -> anyhow::Result<Self::Item>;
+
+	async fn websub(&self) -> anyhow::Result<Option<WebSub>> {
+		Ok(None)
+	}
 
 	fn cache(self, ttl: Duration) -> Cache<Self>
 	where

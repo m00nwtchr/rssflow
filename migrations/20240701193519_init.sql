@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS flows
 (
-    name        TEXT PRIMARY KEY    NOT NULL,
+    uuid        BLOB PRIMARY KEY    NOT NULL,
+    name        TEXT UNIQUE         NOT NULL,
     content     TEXT                NOT NULL
 );

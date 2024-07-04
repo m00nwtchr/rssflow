@@ -1,18 +1,7 @@
-use anyhow::anyhow;
-use reqwest::header::HeaderValue;
+use url::Url;
 
-pub struct WebSubSpec {
-	hub: String,
-	feed: String,
+#[derive(Debug)]
+pub struct WebSub {
+	pub hub: Url,
+	pub this: Url,
 }
-
-// impl TryFrom<HeaderValue> for WebSubSpec {
-// 	type Error = anyhow::Error;
-//
-// 	fn try_from(value: HeaderValue) -> Result<Self, Self::Error> {
-// 		let str = value.to_str()?;
-// 		for part in str.split(", ") {}
-//
-// 		Ok(())
-// 	}
-// }

@@ -9,6 +9,7 @@ use axum::{
 use serde::Serialize;
 use sqlx::{Executor, Row, SqlitePool};
 use std::sync::Arc;
+use uuid::{NoContext, Timestamp, Uuid};
 
 #[derive(Serialize)]
 struct FlowResult {
@@ -69,18 +70,27 @@ async fn update_flow(
 		.map_err(internal_error)?
 		.is_some();
 
-	conn.execute(if update {
-		sqlx::query!("UPDATE flows SET content = ? WHERE name = ?", json, name)
+	if update {
+		conn.execute(sqlx::query!(
+			"UPDATE flows SET content = ? WHERE name = ?",
+			json,
+			name
+		))
+		.await
+		.map_err(internal_error)?;
 	} else {
-		sqlx::query!(
-			"INSERT INTO flows (name, content) VALUES (?, ?)",
+		let uuid = Uuid::new_v7(Timestamp::now(NoContext));
+		let blob = uuid.as_bytes().as_slice();
+
+		conn.execute(sqlx::query!(
+			"INSERT INTO flows (uuid, name, content) VALUES (?, ?, ?)",
+			blob,
 			name,
 			json
-		)
-	})
-	.await
-	.map_err(internal_error)?;
-
+		))
+		.await
+		.map_err(internal_error)?;
+	}
 	state
 		.flows
 		.lock()
