@@ -8,14 +8,16 @@ use sqlx::{
 use tokio::sync::Mutex;
 
 use crate::{
-	convert::AsyncTryInto,
-	flow::node::{Node, AtomNode},
+	flow::{
+		node::{DataKind, Node},
+		Flow, FlowBuilder,
+	},
 	route,
 };
 
 #[allow(clippy::module_name_repetitions)]
 pub struct AppStateInner {
-	pub flows: Mutex<HashMap<String, Arc<AtomNode>>>,
+	pub flows: Mutex<HashMap<String, Arc<Flow>>>,
 	pub pool: SqlitePool,
 }
 
@@ -38,10 +40,8 @@ impl FromRef<AppState> for SqlitePool {
 	}
 }
 
-async fn load_flow(row: &SqliteRow) -> anyhow::Result<AtomNode> {
-	let node: Node = serde_json::de::from_str(&row.get::<String, _>(1))?;
-
-	node.try_into_async().await
+async fn load_flow(row: &SqliteRow) -> anyhow::Result<FlowBuilder> {
+	Ok(serde_json::de::from_str(&row.get::<String, _>(1))?)
 }
 
 pub async fn app() -> anyhow::Result<Router> {
@@ -62,7 +62,7 @@ pub async fn app() -> anyhow::Result<Router> {
 	for row in conn.fetch_all(sqlx::query!("SELECT * FROM flows")).await? {
 		let k = row.get::<String, _>(0);
 		if let Ok(flow) = load_flow(&row).await {
-			flows.insert(k, Arc::new(flow));
+			flows.insert(k, Arc::new(flow.simple(DataKind::Feed)));
 		} else {
 			tracing::error!("Saved flow `{k}` failed to load");
 		}

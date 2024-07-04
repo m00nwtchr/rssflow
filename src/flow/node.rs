@@ -1,251 +1,220 @@
 #![allow(clippy::module_name_repetitions)]
-use std::time::Duration;
+use std::sync::Arc;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
+use derive_more::From;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use url::Url;
+use strum::EnumDiscriminants;
 
-use super::{cache::Cache, feed::Feed};
-use crate::convert::AsyncTryFrom;
-
-#[cfg(feature = "retrieve")]
-use super::retrieve::{serde_selector, Retrieve};
-#[cfg(feature = "retrieve")]
-use scraper::Selector;
+use super::feed::Feed;
 use crate::websub::WebSub;
-#[cfg(feature = "filter")]
-use super::filter::{Filter, Kind};
 
+#[cfg(feature = "filter")]
+use super::filter::Filter;
+#[cfg(feature = "retrieve")]
+use super::retrieve::Retrieve;
 #[cfg(feature = "sanitise")]
 use super::sanitise::Sanitise;
-
-pub type NodeObject<T> = Box<dyn NodeTrait<Item = T>>;
-pub type AtomNode = NodeObject<atom_syndication::Feed>;
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum Node {
-	Cache {
-		ttl: Duration,
-
-		child: Box<Node>,
-	},
-	Feed {
-		url: Url,
-	},
-	#[cfg(feature = "filter")]
-	Filter {
-		field: Field,
-		filter: Kind,
-		invert: bool,
-
-		child: Box<Node>,
-	},
-	#[cfg(feature = "retrieve")]
-	Retrieve {
-		#[serde(with = "serde_selector")]
-		content: Selector,
-
-		child: Box<Node>,
-	},
-	#[cfg(feature = "sanitise")]
-	Sanitise {
-		field: Field,
-
-		child: Box<Node>,
-	},
-	#[cfg(feature = "wasm")]
-	Wasm {
-		wat: Vec<u8>,
-
-		#[serde(skip_serializing_if = "Option::is_none")]
-		child: Option<Box<Node>>,
-	},
-}
+#[cfg(feature = "wasm")]
+use super::wasm::Wasm;
 
 #[async_trait]
 pub trait NodeTrait: Sync + Send {
-	type Item;
+	fn inputs(&self) -> Box<[Arc<IO>]> {
+		Box::new([])
+	}
+	fn outputs(&self) -> Box<[DataKind]> {
+		Box::new([])
+	}
 
-	async fn run(&self) -> anyhow::Result<Self::Item>;
+	async fn run(&self) -> anyhow::Result<()>;
+
+	#[allow(unused_variables)]
+	fn set_outputs(&mut self, outputs: Vec<Arc<IO>>) {
+		unimplemented!();
+	}
+	fn output(&mut self, output: Arc<IO>);
 
 	async fn websub(&self) -> anyhow::Result<Option<WebSub>> {
 		Ok(None)
 	}
-
-	fn cache(self, ttl: Duration) -> Cache<Self>
-	where
-		Self: Sized,
-	{
-		Cache::new(self, ttl)
-	}
-
-	#[cfg(feature = "filter")]
-	fn filter(self, field: Field, filter: Kind, invert: bool) -> Filter<Self>
-	where
-		Self: Sized,
-	{
-		Filter::new(self, field, filter, invert)
-	}
-
-	#[cfg(feature = "retrieve")]
-	fn retrieve(self, content: Selector) -> Retrieve<Self>
-	where
-		Self: Sized,
-	{
-		Retrieve::new(self, content)
-	}
-
-	#[cfg(feature = "sanitise")]
-	fn sanitise(self, field: Field) -> Sanitise<Self>
-	where
-		Self: Sized,
-	{
-		Sanitise::new(self, field)
-	}
-
-	#[cfg(feature = "wasm")]
-	async fn wasm<T>(self, wat: &[u8]) -> anyhow::Result<super::wasm::Wasm<T, Self>>
-	where
-		Self: Sized,
-	{
-		Ok(super::wasm::Wasm::new(wat).await?.child(self))
-	}
 }
 
-impl Node {
-	pub fn cache(self, ttl: Duration) -> Self {
-		Self::Cache {
-			child: Box::new(self),
-			ttl,
-		}
-	}
-
-	#[cfg(feature = "filter")]
-	pub fn filter(self, field: Field, filter: Kind, invert: bool) -> Self {
-		Self::Filter {
-			child: Box::new(self),
-			field,
-			filter,
-			invert,
-		}
-	}
-
-	#[cfg(feature = "retrieve")]
-	pub fn retrieve(self, content: Selector) -> Self {
-		Self::Retrieve {
-			child: Box::new(self),
-			content,
-		}
-	}
-
-	#[cfg(feature = "sanitise")]
-	pub fn sanitise(self, field: Field) -> Self {
-		Self::Sanitise {
-			child: Box::new(self),
-			field,
-		}
-	}
-
-	#[cfg(feature = "wasm")]
-	pub fn wasm(self, wat: Vec<u8>) -> Self {
-		Self::Wasm {
-			child: Some(Box::new(self)),
-			wat,
-		}
-	}
-}
-
-impl From<Node> for AtomNode {
-	fn from(node: Node) -> Self {
-		match node {
-			Node::Cache { ttl, child } => {
-				let int: AtomNode = (*child).into();
-				Box::new(Cache::new(int, ttl))
-			}
-			Node::Feed { url } => Box::new(Feed::new(url)),
-			#[cfg(feature = "filter")]
-			Node::Filter {
-				field,
-				filter,
-				invert,
-				child,
-			} => {
-				let int: AtomNode = (*child).into();
-				Box::new(Filter::new(int, field, filter, invert))
-			}
+#[async_trait]
+impl NodeTrait for Node {
+	fn inputs(&self) -> Box<[Arc<IO>]> {
+		match self {
+			Self::Feed(n) => n.inputs(),
+			Self::Filter(n) => n.inputs(),
 			#[cfg(feature = "retrieve")]
-			Node::Retrieve { content, child } => {
-				let int: AtomNode = (*child).into();
-				Box::new(Retrieve::new(int, content))
-			}
+			Self::Retrieve(n) => n.inputs(),
 			#[cfg(feature = "sanitise")]
-			Node::Sanitise { child, field } => {
-				let int: AtomNode = (*child).into();
-				Box::new(Sanitise::new(int, field))
-			}
-			#[allow(unreachable_patterns)]
+			Self::Sanitise(n) => n.inputs(),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.inputs(),
+			Self::Other(n) => n.inputs(),
+			_ => unimplemented!(),
+		}
+	}
+
+	fn outputs(&self) -> Box<[DataKind]> {
+		match self {
+			Self::Feed(n) => n.outputs(),
+			Self::Filter(n) => n.outputs(),
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.outputs(),
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.outputs(),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.outputs(),
+			Self::Other(n) => n.outputs(),
+			_ => unimplemented!(),
+		}
+	}
+
+	async fn run(&self) -> anyhow::Result<()> {
+		match self {
+			Self::Feed(n) => n.run().await,
+			Self::Filter(n) => n.run().await,
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.run().await,
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.run().await,
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.run().await,
+			Self::Other(n) => n.run().await,
+			_ => unimplemented!(),
+		}
+	}
+
+	fn set_outputs(&mut self, outputs: Vec<Arc<IO>>) {
+		match self {
+			Self::Feed(n) => n.set_outputs(outputs),
+			Self::Filter(n) => n.set_outputs(outputs),
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.set_outputs(outputs),
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.set_outputs(outputs),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.set_outputs(outputs),
+			Self::Other(n) => n.set_outputs(outputs),
+			_ => unimplemented!(),
+		}
+	}
+
+	fn output(&mut self, output: Arc<IO>) {
+		match self {
+			Self::Feed(n) => n.output(output),
+			Self::Filter(n) => n.output(output),
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.output(output),
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.output(output),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.output(output),
+			Self::Other(n) => n.output(output),
 			_ => unimplemented!(),
 		}
 	}
 }
 
-#[async_trait]
-impl AsyncTryFrom<Node> for AtomNode {
-	type Error = anyhow::Error;
+#[derive(Serialize, Deserialize, From)]
+#[serde(tag = "type")]
+pub enum Node {
+	Feed(Feed),
+	#[cfg(feature = "filter")]
+	Filter(Filter),
+	#[cfg(feature = "retrieve")]
+	Retrieve(Retrieve),
+	#[cfg(feature = "sanitise")]
+	Sanitise(Sanitise),
+	#[cfg(feature = "wasm")]
+	#[serde(skip)]
+	Wasm(Wasm),
+	#[serde(skip)]
+	Other(Box<dyn NodeTrait>),
+}
 
-	async fn try_from_async(value: Node) -> Result<Self, Self::Error> {
-		match value {
-			#[cfg(feature = "wasm")]
-			Node::Wasm { child, wat } => {
-				let mut wasm = super::wasm::Wasm::new(wat).await?;
+#[derive(EnumDiscriminants, Serialize, Deserialize, Debug, From, Clone)]
+#[strum_discriminants(name(DataKind), derive(Serialize, Deserialize))]
+#[serde(untagged)]
+pub enum Data {
+	Feed(atom_syndication::Feed),
+	Entry(atom_syndication::Entry),
+	Vec(Vec<Data>),
+	Any(Box<Data>),
+}
 
-				if let Some(child) = child {
-					let int: AtomNode = (*child).into();
-					wasm = wasm.child(int);
-				}
+impl Data {
+	pub fn is_kind(&self, kind: &DataKind) -> bool {
+		match kind {
+			DataKind::Feed => matches!(self, Data::Feed(_)),
+			DataKind::Entry => matches!(self, Data::Entry(_)),
+			DataKind::Vec => matches!(self, Data::Vec(_)),
+			DataKind::Any => true,
+		}
+	}
 
-				Ok(Box::new(wasm))
-			}
-			_ => Ok(AtomNode::from(value)),
+	pub fn kind(&self) -> DataKind {
+		match self {
+			Self::Feed(_) => DataKind::Feed,
+			Self::Entry(_) => DataKind::Entry,
+			Self::Vec(_) => DataKind::Vec,
+			Self::Any(data) => data.kind(),
 		}
 	}
 }
 
-#[async_trait]
-impl<T> NodeTrait for NodeObject<T> {
-	type Item = T;
+#[derive(Debug)]
+pub struct IO {
+	inner: Arc<RwLock<Option<Data>>>,
+	kind: DataKind,
+}
 
-	async fn run(&self) -> anyhow::Result<T> {
-		(**self).run().await
+impl IO {
+	pub fn new(kind: DataKind) -> Self {
+		Self {
+			inner: Arc::new(RwLock::new(None)),
+			kind,
+		}
+	}
+
+	pub fn kind(&self) -> &DataKind {
+		&self.kind
+	}
+
+	pub fn accept(&self, data: impl Into<Data>) -> anyhow::Result<()> {
+		let data = data.into();
+		if data.is_kind(&self.kind) {
+			self.inner.write().replace(data);
+			Ok(())
+		} else {
+			Err(anyhow!("Wrong data type"))
+		}
+	}
+
+	pub fn get(&self) -> Option<Data> {
+		self.inner.read().clone()
+	}
+
+	pub fn is_some(&self) -> bool {
+		self.inner.read().is_some()
 	}
 }
 
-#[cfg(test)]
-mod test {
-	use super::*;
-	use crate::convert::AsyncTryInto;
-
-	#[tokio::test]
-	pub async fn serde() -> anyhow::Result<()> {
-		let node = Node::Feed {
-			url: "https://www.azaleaellis.com/tag/pgts/feed/atom".parse()?,
+pub fn collect_inputs(inputs: &Vec<Arc<IO>>) -> Option<Vec<Data>> {
+	let mut data = Vec::with_capacity(inputs.len());
+	for input in inputs.iter() {
+		if !input.is_some() {
+			return None;
 		}
-		.filter(
-			Field::Summary,
-			Kind::Contains("BELOW IS A SNEAK PEEK OF THIS CONTENT!".to_string()),
-			true,
-		)
-		.retrieve(Selector::parse(".entry-content").unwrap())
-		.sanitise(Field::Content)
-		.cache(Duration::from_secs(60 * 60));
 
-		println!("{}", serde_json::to_string(&node)?);
-
-		let _node: AtomNode = node.try_into_async().await?;
-
-		Ok(())
+		data.push(input.get().unwrap())
 	}
+
+	Some(data)
 }
 
 #[derive(Serialize, Deserialize, Debug)]

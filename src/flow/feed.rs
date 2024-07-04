@@ -1,28 +1,51 @@
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
+
 use async_trait::async_trait;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::node::NodeTrait;
+use super::node::{DataKind, NodeTrait, IO};
 use crate::websub::WebSub;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Feed {
 	url: Url,
+
+	ttl: Duration,
+	#[serde(skip, default = "Instant::now")]
+	last_fetch: Instant,
+
+	#[serde(skip, default = "super::feed_io")]
+	output: Arc<IO>,
 }
 
 impl Feed {
-	pub fn new(url: Url) -> Self {
-		Self { url }
+	pub fn new(url: Url, ttl: Duration) -> Self {
+		Self {
+			url,
+			output: Arc::new(IO::new(DataKind::Feed)),
+			ttl,
+			last_fetch: Instant::now(),
+		}
 	}
 }
 
 #[async_trait]
 impl NodeTrait for Feed {
-	type Item = atom_syndication::Feed;
+	fn outputs(&self) -> Box<[DataKind]> {
+		Box::new([DataKind::Feed])
+	}
 
 	#[tracing::instrument(name = "feed_node")]
-	async fn run(&self) -> anyhow::Result<atom_syndication::Feed> {
+	async fn run(&self) -> anyhow::Result<()> {
+		if Instant::now() - self.last_fetch < self.ttl && self.output.is_some() {
+			return Ok(());
+		}
+
 		let response = reqwest::get(self.url.clone()).await?;
 
 		if let Some(ct) = response.headers().get(header::CONTENT_TYPE) {
@@ -34,7 +57,11 @@ impl NodeTrait for Feed {
 		let content = response.bytes().await?;
 		let feed = atom_syndication::Feed::read_from(&content[..])?;
 
-		Ok(feed)
+		self.output.accept(feed)
+	}
+
+	fn output(&mut self, output: Arc<IO>) {
+		self.output = output;
 	}
 
 	async fn websub(&self) -> anyhow::Result<Option<WebSub>> {
@@ -66,10 +93,14 @@ impl NodeTrait for Feed {
 #[cfg(test)]
 mod test {
 	use crate::flow::{feed::Feed, node::NodeTrait};
+	use std::time::Duration;
 
 	#[tokio::test]
 	pub async fn websub() -> anyhow::Result<()> {
-		let node = Feed::new("http://push-tester.cweiske.de/feed.php".parse().unwrap());
+		let node = Feed::new(
+			"http://push-tester.cweiske.de/feed.php".parse().unwrap(),
+			Duration::from_secs(60 * 60),
+		);
 
 		let c = node.websub().await?;
 

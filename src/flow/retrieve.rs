@@ -1,25 +1,31 @@
-use std::cmp::min;
+use std::{cmp::min, sync::Arc};
 
+use super::node::{Data, DataKind, NodeTrait, IO};
+use anyhow::anyhow;
 use async_trait::async_trait;
-use atom_syndication::{ContentBuilder, Feed};
+use atom_syndication::ContentBuilder;
 use futures::stream::{self, StreamExt};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use tracing::Instrument;
-
-use super::node::NodeTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Retrieve<I> {
+pub struct Retrieve {
 	#[serde(with = "serde_selector")]
 	content: Selector,
 
-	child: I,
+	#[serde(skip, default = "super::feed_io")]
+	input: Arc<IO>,
+	#[serde(skip, default = "super::feed_io")]
+	output: Arc<IO>,
 }
 
-impl<I: NodeTrait> Retrieve<I> {
-	pub fn new(child: I, content: Selector) -> Self {
-		Self { content, child }
+impl Retrieve {
+	pub fn new(content: Selector) -> Self {
+		Self {
+			content,
+			input: Arc::new(IO::new(DataKind::Feed)),
+			output: Arc::new(IO::new(DataKind::Feed)),
+		}
 	}
 }
 
@@ -47,24 +53,35 @@ async fn get_content(
 }
 
 #[async_trait]
-impl<I: NodeTrait<Item = Feed>> NodeTrait for Retrieve<I> {
-	type Item = Feed;
+impl NodeTrait for Retrieve {
+	fn inputs(&self) -> Box<[Arc<IO>]> {
+		Box::new([self.input.clone()])
+	}
 
-	async fn run(&self) -> anyhow::Result<Feed> {
-		let span = tracing::info_span!("retrieve_node");
-		let mut atom = self.child.run().await?;
+	fn outputs(&self) -> Box<[DataKind]> {
+		Box::new([DataKind::Feed])
+	}
+
+	#[tracing::instrument(name = "retrieve_node")]
+	async fn run(&self) -> anyhow::Result<()> {
+		let Some(Data::Feed(mut atom)) = self.input.get() else {
+			return Err(anyhow!(""));
+		};
 
 		let n = min(atom.entries.len(), 6); // Avoiding too high values to prevent spamming the target site.
-		let items: Vec<anyhow::Result<atom_syndication::Entry>> = stream::iter(atom.entries.into_iter())
-			.map(|item| get_content(item, &self.content))
-			.buffered(n)
-			.collect()
-			.instrument(span.clone())
-			.await;
-		let _enter = span.enter();
+		let items: Vec<anyhow::Result<atom_syndication::Entry>> =
+			stream::iter(atom.entries.into_iter())
+				.map(|item| get_content(item, &self.content))
+				.buffered(n)
+				.collect()
+				.await;
 		atom.entries = items.into_iter().collect::<anyhow::Result<_>>()?;
 
-		Ok(atom)
+		self.output.accept(atom)
+	}
+
+	fn output(&mut self, output: Arc<IO>) {
+		self.output = output;
 	}
 }
 

@@ -1,4 +1,11 @@
-use crate::{app::AppState, convert::AsyncTryInto, flow::node::Node, route::internal_error};
+use crate::{
+	app::AppState,
+	flow::{
+		node::{DataKind, Node},
+		FlowBuilder,
+	},
+	route::internal_error,
+};
 use axum::{
 	extract::{Path, State},
 	http::StatusCode,
@@ -9,6 +16,7 @@ use axum::{
 use serde::Serialize;
 use sqlx::{Executor, Row, SqlitePool};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use uuid::{NoContext, Timestamp, Uuid};
 
 #[derive(Serialize)]
@@ -55,13 +63,9 @@ async fn update_flow(
 	Path(name): Path<String>,
 	State(state): State<AppState>,
 	State(pool): State<SqlitePool>,
-	Json(flow): Json<Node>,
+	Json(flow): Json<FlowBuilder>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let json = serde_json::to_string(&flow).map_err(internal_error)?;
-	let atom = flow
-		.try_into_async()
-		.await
-		.map_err(|e: anyhow::Error| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
 	let update = conn
@@ -91,11 +95,10 @@ async fn update_flow(
 		.await
 		.map_err(internal_error)?;
 	}
-	state
-		.flows
-		.lock()
-		.await
-		.insert(name.clone(), Arc::new(atom));
+	state.flows.lock().await.insert(
+		name.clone(),
+		Arc::new(flow.simple(DataKind::Feed)),
+	);
 
 	Ok(if update {
 		StatusCode::NO_CONTENT

@@ -1,44 +1,57 @@
-use std::thread::available_parallelism;
-
+use super::node::{Data, DataKind, Field, NodeTrait, IO};
+use anyhow::anyhow;
 use async_trait::async_trait;
-use atom_syndication::Feed;
 use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
-use tracing::Instrument;
+use std::{sync::Arc, thread::available_parallelism};
 
-use super::node::{Field, NodeTrait};
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Sanitise<I> {
-	field: Field,
-	child: I,
-
-	#[serde(skip)]
-	ammonia: ammonia::Builder<'static>,
+#[inline]
+pub fn default_ammonia() -> ammonia::Builder<'static> {
+	let mut ammonia = ammonia::Builder::new();
+	ammonia.add_generic_attributes(["style"]);
+	ammonia
 }
 
-impl<I: NodeTrait> Sanitise<I> {
-	pub fn new(child: I, field: Field) -> Self {
-		let mut ammonia = ammonia::Builder::new();
-		ammonia.add_generic_attributes(["style"]);
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Sanitise {
+	field: Field,
 
+	#[serde(skip, default = "default_ammonia")]
+	ammonia: ammonia::Builder<'static>,
+
+	#[serde(skip, default = "super::feed_io")]
+	input: Arc<IO>,
+	#[serde(skip, default = "super::feed_io")]
+	output: Arc<IO>,
+}
+
+impl Sanitise {
+	pub fn new(field: Field) -> Self {
 		Self {
 			field,
-			child,
-
-			ammonia,
+			ammonia: default_ammonia(),
+			input: Arc::new(IO::new(DataKind::Feed)),
+			output: Arc::new(IO::new(DataKind::Feed)),
 		}
 	}
 }
 
 #[async_trait]
-impl<I: NodeTrait<Item = Feed>> NodeTrait for Sanitise<I> {
-	type Item = Feed;
+impl NodeTrait for Sanitise {
+	fn inputs(&self) -> Box<[Arc<IO>]> {
+		Box::new([self.input.clone()])
+	}
 
-	async fn run(&self) -> anyhow::Result<Feed> {
-		let mut atom = self.child.run().await?;
+	fn outputs(&self) -> Box<[DataKind]> {
+		Box::new([])
+	}
 
-		let span = tracing::info_span!("sanitise_node");
+	#[tracing::instrument(name = "sanitise_node")]
+	async fn run(&self) -> anyhow::Result<()> {
+		let Some(Data::Feed(mut atom)) = self.input.get() else {
+			return Err(anyhow!(""));
+		};
+
 		atom.entries = stream::iter(atom.entries.into_iter())
 			.map(|mut item| async {
 				let Some(value) = (match self.field {
@@ -69,9 +82,12 @@ impl<I: NodeTrait<Item = Feed>> NodeTrait for Sanitise<I> {
 			})
 			.buffered(available_parallelism()?.get())
 			.collect()
-			.instrument(span)
 			.await;
 
-		Ok(atom)
+		self.output.accept(atom)
+	}
+
+	fn output(&mut self, output: Arc<IO>) {
+		self.output = output;
 	}
 }
