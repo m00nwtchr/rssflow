@@ -9,11 +9,12 @@ use axum::{
 use crate::{app::AppState, flow::node::Data, route::Atom};
 
 #[tracing::instrument(name = "run_flow_handler", skip(state))]
+#[axum::debug_handler]
 pub async fn run(
 	Path(name): Path<String>,
 	State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if let Some(flow) = state.flows.lock().get(&name).cloned() {
+	if let Some(flow) = state.flows.lock().await.get(&name).cloned() {
 		let Some(Data::Feed(feed)) = flow
 			.run()
 			.await

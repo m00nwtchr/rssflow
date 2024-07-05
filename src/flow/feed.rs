@@ -4,6 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use parking_lot::Mutex;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -19,6 +20,9 @@ pub struct Feed {
 	#[serde(skip, default = "Instant::now")]
 	last_fetch: Instant,
 
+	#[serde(skip)]
+	web_sub: Mutex<Option<WebSub>>,
+
 	#[serde(skip, default = "super::feed_io")]
 	output: Arc<IO>,
 }
@@ -30,6 +34,7 @@ impl Feed {
 			output: Arc::new(IO::new(DataKind::Feed)),
 			ttl,
 			last_fetch: Instant::now(),
+			web_sub: Mutex::default(),
 		}
 	}
 }
@@ -57,25 +62,6 @@ impl NodeTrait for Feed {
 		let content = response.bytes().await?;
 		let feed = atom_syndication::Feed::read_from(&content[..])?;
 
-		self.output.accept(feed)
-	}
-
-	fn output(&mut self, output: Arc<IO>) {
-		self.output = output;
-	}
-
-	async fn websub(&self) -> anyhow::Result<Option<WebSub>> {
-		let response = reqwest::get(self.url.clone()).await?;
-
-		if let Some(ct) = response.headers().get(header::CONTENT_TYPE) {
-			if ct.eq("application/rss+xml") {
-				// TODO: Handle RSS channels (upgrade to atom)
-			}
-		}
-
-		let content = response.bytes().await?;
-		let feed = atom_syndication::Feed::read_from(&content[..])?;
-
 		let this = feed.links.iter().find(|l| l.rel.eq("self"));
 		let hub = feed.links.iter().find(|l| l.rel.eq("hub"));
 
@@ -83,10 +69,18 @@ impl NodeTrait for Feed {
 			let this = this.href.parse()?;
 			let hub = hub.href.parse()?;
 
-			Ok(Some(WebSub { hub, this }))
-		} else {
-			Ok(None)
+			self.web_sub.lock().replace(WebSub { this, hub });
 		}
+
+		self.output.accept(feed)
+	}
+
+	fn output(&mut self, output: Arc<IO>) {
+		self.output = output;
+	}
+
+	fn web_sub(&self) -> Option<WebSub> {
+		self.web_sub.lock().clone()
 	}
 }
 
@@ -102,7 +96,9 @@ mod test {
 			Duration::from_secs(60 * 60),
 		);
 
-		let c = node.websub().await?;
+		node.run().await?;
+
+		let c = node.web_sub();
 
 		println!("{:?}", c);
 

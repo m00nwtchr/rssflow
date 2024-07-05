@@ -6,7 +6,7 @@ use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow},
 	Executor, Row, SqlitePool,
 };
-use parking_lot::Mutex;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{

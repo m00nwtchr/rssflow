@@ -31,19 +31,21 @@ pub struct Flow {
 
 impl Flow {
 	pub async fn run(&self) -> anyhow::Result<Option<Data>> {
-		let nodes = self.nodes.lock().await;
-		for node in nodes.iter() {
-			if node.is_dirty() {
-				tracing::info!("Running node: {node}");
-				node.run().await?;
-
-				let inputs = node.inputs();
-				for io in inputs.iter().filter(|i| i.is_dirty()) {
-					io.clear();
-				}
-			}
-		}
-		Ok(self.output.get())
+		// let nodes = self.nodes.lock().await;
+		// for node in nodes.iter() {
+		// 	if node.is_dirty() {
+		// 		tracing::info!("Running node: {node}");
+		// 		node.run().await?;
+		//
+		// 		let inputs = node.inputs();
+		// 		for io in inputs.iter().filter(|i| i.is_dirty()) {
+		// 			io.clear();
+		// 		}
+		// 	}
+		// }
+		// Ok(self.output.get())
+		//
+		Ok(None)
 	}
 }
 

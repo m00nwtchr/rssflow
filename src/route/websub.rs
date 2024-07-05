@@ -1,4 +1,3 @@
-use crate::{app::AppState, route::Atom};
 use axum::{
 	extract::{Path, State},
 	http::StatusCode,
@@ -8,6 +7,8 @@ use axum::{
 };
 use uuid::Uuid;
 
+use crate::{app::AppState};
+
 pub async fn receive(
 	Path(uuid): Path<Uuid>,
 	State(state): State<AppState>,
@@ -15,6 +16,7 @@ pub async fn receive(
 	let flow = state
 		.flows
 		.lock()
+		.await
 		.iter()
 		.find(|(_, v)| v.uuid == uuid)
 		.map(|(_, v)| v.clone());

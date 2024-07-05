@@ -43,8 +43,8 @@ pub trait NodeTrait: Sync + Send {
 	}
 	fn output(&mut self, output: Arc<IO>);
 
-	async fn websub(&self) -> anyhow::Result<Option<WebSub>> {
-		Ok(None)
+	fn web_sub(&self) -> Option<WebSub> {
+		None
 	}
 }
 

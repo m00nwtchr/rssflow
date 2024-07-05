@@ -1,11 +1,5 @@
-use crate::{
-	app::AppState,
-	flow::{
-		node::{DataKind, Node},
-		FlowBuilder,
-	},
-	route::internal_error,
-};
+use std::sync::Arc;
+
 use axum::{
 	extract::{Path, State},
 	http::StatusCode,
@@ -15,9 +9,13 @@ use axum::{
 };
 use serde::Serialize;
 use sqlx::{Executor, Row, SqlitePool};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use uuid::{NoContext, Timestamp, Uuid};
+
+use super::internal_error;
+use crate::{
+	app::AppState,
+	flow::{node::DataKind, FlowBuilder},
+};
 
 #[derive(Serialize)]
 struct FlowResult {
@@ -87,6 +85,7 @@ async fn update_flow(
 		state
 			.flows
 			.lock()
+			.await
 			.insert(name.clone(), Arc::new(flow.simple(DataKind::Feed, uuid)));
 
 		Ok(StatusCode::NO_CONTENT)
@@ -106,6 +105,7 @@ async fn update_flow(
 		state
 			.flows
 			.lock()
+			.await
 			.insert(name.clone(), Arc::new(flow.simple(DataKind::Feed, uuid)));
 
 		Ok(StatusCode::CREATED)
@@ -117,7 +117,7 @@ async fn delete_flow(
 	State(state): State<AppState>,
 	State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if state.flows.lock().remove(&name).is_some() {
+	if state.flows.lock().await.remove(&name).is_some() {
 		let mut conn = pool.acquire().await.map_err(internal_error)?;
 		conn.execute(sqlx::query!("DELETE FROM flows WHERE name = ?", name))
 			.await
