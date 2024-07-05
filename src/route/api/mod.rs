@@ -68,13 +68,12 @@ async fn update_flow(
 	let json = serde_json::to_string(&flow).map_err(internal_error)?;
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let update = conn
+
+	if let Some(row) = conn
 		.fetch_optional(sqlx::query!("SELECT * FROM flows WHERE name = ?", name))
 		.await
 		.map_err(internal_error)?
-		.is_some();
-
-	if update {
+	{
 		conn.execute(sqlx::query!(
 			"UPDATE flows SET content = ? WHERE name = ?",
 			json,
@@ -82,6 +81,15 @@ async fn update_flow(
 		))
 		.await
 		.map_err(internal_error)?;
+
+		let uuid = Uuid::from_slice(row.get("uuid")).map_err(internal_error)?;
+
+		state
+			.flows
+			.lock()
+			.insert(name.clone(), Arc::new(flow.simple(DataKind::Feed, uuid)));
+
+		Ok(StatusCode::NO_CONTENT)
 	} else {
 		let uuid = Uuid::new_v7(Timestamp::now(NoContext));
 		let blob = uuid.as_bytes().as_slice();
@@ -94,17 +102,14 @@ async fn update_flow(
 		))
 		.await
 		.map_err(internal_error)?;
-	}
-	state.flows.lock().await.insert(
-		name.clone(),
-		Arc::new(flow.simple(DataKind::Feed)),
-	);
 
-	Ok(if update {
-		StatusCode::NO_CONTENT
-	} else {
-		StatusCode::CREATED
-	})
+		state
+			.flows
+			.lock()
+			.insert(name.clone(), Arc::new(flow.simple(DataKind::Feed, uuid)));
+
+		Ok(StatusCode::CREATED)
+	}
 }
 
 async fn delete_flow(
@@ -112,7 +117,7 @@ async fn delete_flow(
 	State(state): State<AppState>,
 	State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if state.flows.lock().await.remove(&name).is_some() {
+	if state.flows.lock().remove(&name).is_some() {
 		let mut conn = pool.acquire().await.map_err(internal_error)?;
 		conn.execute(sqlx::query!("DELETE FROM flows WHERE name = ?", name))
 			.await

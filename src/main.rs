@@ -1,14 +1,13 @@
 #![warn(clippy::pedantic)]
 
-use crate::app::app;
-
 mod app;
 mod convert;
+mod feed;
 mod flow;
 mod route;
 mod websub;
-mod feed;
-// mod rss;
+
+use crate::app::app;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

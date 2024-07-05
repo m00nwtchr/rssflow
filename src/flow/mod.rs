@@ -1,3 +1,9 @@
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
 pub mod feed;
 #[cfg(feature = "filter")]
 pub mod filter;
@@ -9,11 +15,7 @@ pub mod sanitise;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-use crate::flow::node::{Data, DataKind, NodeTrait, IO};
-use node::Node;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use node::{Data, DataKind, Node, NodeTrait, IO};
 
 #[inline]
 fn feed_io() -> Arc<IO> {
@@ -21,6 +23,7 @@ fn feed_io() -> Arc<IO> {
 }
 
 pub struct Flow {
+	pub uuid: Uuid,
 	nodes: Mutex<Vec<Node>>,
 
 	output: Arc<IO>,
@@ -59,7 +62,7 @@ impl FlowBuilder {
 		self
 	}
 
-	pub fn simple(self, output: DataKind) -> Flow {
+	pub fn simple(self, output: DataKind, uuid: Uuid) -> Flow {
 		let mut nodes = self.nodes;
 		let output = Arc::new(IO::new(output));
 
@@ -76,6 +79,7 @@ impl FlowBuilder {
 		}
 
 		Flow {
+			uuid,
 			nodes: Mutex::new(nodes),
 			output,
 		}
@@ -90,7 +94,7 @@ impl From<Vec<Node>> for FlowBuilder {
 
 #[cfg(test)]
 mod test {
-	use super::node::{Data, DataKind, Field};
+	use super::node::Field;
 	use crate::flow::{
 		feed::Feed,
 		filter::{Filter, Kind},
@@ -98,7 +102,6 @@ mod test {
 		sanitise::Sanitise,
 		FlowBuilder,
 	};
-	use anyhow::anyhow;
 	use scraper::Selector;
 	use std::time::Duration;
 

@@ -13,7 +13,7 @@ pub async fn run(
 	Path(name): Path<String>,
 	State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if let Some(flow) = state.flows.lock().await.get(&name).cloned() {
+	if let Some(flow) = state.flows.lock().get(&name).cloned() {
 		let Some(Data::Feed(feed)) = flow
 			.run()
 			.await

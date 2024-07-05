@@ -1,12 +1,13 @@
 use std::{cmp::min, sync::Arc};
 
-use super::node::{Data, DataKind, NodeTrait, IO};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use atom_syndication::ContentBuilder;
 use futures::stream::{self, StreamExt};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
+
+use super::node::{Data, DataKind, NodeTrait, IO};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve {

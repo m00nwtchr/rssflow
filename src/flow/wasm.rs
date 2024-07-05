@@ -1,13 +1,13 @@
+use std::{fmt::Write, sync::Arc};
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Write, sync::Arc};
 use tokio::sync::Mutex;
 use wasmtime::{Config, Engine, Linker, Module, Store, TypedFunc};
 use wasmtime_wasi::{preview1, preview1::WasiP1Ctx, WasiCtxBuilder};
 
-use super::{node, node::NodeTrait};
-use crate::flow::node::{Data, DataKind, IO};
+use super::node::{collect_inputs, Data, DataKind, NodeTrait, IO};
 use pipe::{MyInputPipe, MyOutputPipe};
 
 pub struct Wasm {
@@ -81,7 +81,7 @@ impl NodeTrait for Wasm {
 
 	#[tracing::instrument(name = "wasm_node", skip(self))]
 	async fn run(&self) -> anyhow::Result<()> {
-		if let Some(input) = node::collect_inputs(&self.inputs) {
+		if let Some(input) = collect_inputs(&self.inputs) {
 			let json = serde_json::to_string(&input)?;
 			self.stdin.buffer.lock().write_str(&json)?;
 		}
