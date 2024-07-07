@@ -11,6 +11,7 @@ use serde_regex;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Filter {
 	field: Field,
+	#[allow(clippy::struct_field_names)]
 	filter: Kind,
 	invert: bool,
 

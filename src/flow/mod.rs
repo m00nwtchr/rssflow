@@ -123,7 +123,7 @@ impl FlowBuilder {
 				} else if flag {
 					flag = false;
 					for (j, output) in outputs.iter().enumerate() {
-						node.set_output(j, output.clone())
+						node.set_output(j, output.clone());
 					}
 				}
 

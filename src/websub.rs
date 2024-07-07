@@ -1,11 +1,6 @@
-use anyhow::anyhow;
-use rand::{
-	distributions::{Alphanumeric, Uniform},
-	Rng, RngCore,
-};
+use rand::{distributions::Uniform, Rng};
 use serde::{Deserialize, Serialize};
-use sqlx::{pool::PoolConnection, Executor, Row, Sqlite, SqliteConnection};
-use url::Url;
+use sqlx::{pool::PoolConnection, Executor, Row, Sqlite};
 use uuid::{NoContext, Timestamp, Uuid};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

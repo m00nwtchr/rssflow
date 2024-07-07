@@ -9,15 +9,11 @@ use axum::{
 };
 use serde::Serialize;
 use sqlx::{Executor, Row, SqlitePool};
-use uuid::{NoContext, Timestamp, Uuid};
 
 use super::internal_error;
 use crate::{
 	app::AppState,
-	flow::{
-		node::{DataKind, NodeTrait},
-		FlowBuilder,
-	},
+	flow::{node::NodeTrait, FlowBuilder},
 };
 
 #[derive(Serialize)]

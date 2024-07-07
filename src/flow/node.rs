@@ -176,7 +176,7 @@ pub enum Data {
 }
 
 impl Data {
-	pub fn is_kind(&self, kind: &DataKind) -> bool {
+	pub fn is_kind(&self, kind: DataKind) -> bool {
 		match kind {
 			DataKind::Feed => matches!(self, Data::Feed(_)),
 			DataKind::Entry => matches!(self, Data::Entry(_)),
@@ -223,7 +223,7 @@ impl IO {
 
 	pub fn accept(&self, data: impl Into<Data>) -> anyhow::Result<()> {
 		let data = data.into();
-		if data.is_kind(&self.kind) {
+		if data.is_kind(self.kind) {
 			let mut inner = self.inner.write();
 			inner.dirty = inner.data.replace(data) != inner.data;
 			Ok(())
