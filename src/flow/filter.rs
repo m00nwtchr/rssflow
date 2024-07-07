@@ -1,21 +1,23 @@
 use std::sync::Arc;
 
+use super::node::{Data, DataKind, Field, NodeTrait, IO};
+use crate::flow::feed_arr;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_regex;
 
-use super::node::{Data, DataKind, Field, NodeTrait, IO};
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Filter {
 	field: Field,
+	#[allow(clippy::struct_field_names)]
 	filter: Kind,
 	invert: bool,
 
-	#[serde(skip, default = "super::feed_io")]
-	input: Arc<IO>,
+	#[serde(skip, default = "super::feed_arr")]
+	inputs: [Arc<IO>; 1],
+
 	#[serde(skip, default = "super::feed_io")]
 	output: Arc<IO>,
 }
@@ -27,24 +29,24 @@ impl Filter {
 			filter,
 			invert,
 
-			input: Arc::new(IO::new(DataKind::Feed)),
 			output: Arc::new(IO::new(DataKind::Feed)),
+			inputs: feed_arr(),
 		}
 	}
 }
 
 #[async_trait]
 impl NodeTrait for Filter {
-	fn inputs(&self) -> Box<[Arc<IO>]> {
-		Box::new([self.input.clone()])
+	fn inputs(&self) -> &[Arc<IO>] {
+		&self.inputs
 	}
 
-	fn outputs(&self) -> Box<[DataKind]> {
-		Box::new([DataKind::Feed])
+	fn outputs(&self) -> &[DataKind] {
+		&[DataKind::Feed]
 	}
 
 	async fn run(&self) -> anyhow::Result<()> {
-		let Some(Data::Feed(mut atom)) = self.input.get() else {
+		let Some(Data::Feed(mut atom)) = self.inputs[0].get() else {
 			return Err(anyhow!(""));
 		};
 
@@ -76,7 +78,7 @@ impl NodeTrait for Filter {
 		self.output.accept(atom)
 	}
 
-	fn output(&mut self, output: Arc<IO>) {
+	fn set_output(&mut self, _index: usize, output: Arc<IO>) {
 		self.output = output;
 	}
 }

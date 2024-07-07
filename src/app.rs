@@ -1,6 +1,7 @@
-use std::{collections::HashMap, env::var, ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 use axum::{extract::FromRef, routing::get, Router};
+use futures::StreamExt;
 use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow},
 	Executor, Row, SqlitePool,
@@ -8,10 +9,8 @@ use sqlx::{
 use tokio::sync::Mutex;
 
 use crate::{
-	flow::{
-		node::{DataKind, Node},
-		Flow, FlowBuilder,
-	},
+	config::AppConfig,
+	flow::{Flow, FlowBuilder},
 	route,
 };
 
@@ -19,6 +18,7 @@ use crate::{
 pub struct AppStateInner {
 	pub flows: Mutex<HashMap<String, Arc<Flow>>>,
 	pub pool: SqlitePool,
+	pub config: Arc<AppConfig>,
 }
 
 #[derive(Clone)]
@@ -40,17 +40,23 @@ impl FromRef<AppState> for SqlitePool {
 	}
 }
 
-fn load_flow(row: &SqliteRow) -> anyhow::Result<FlowBuilder> {
-	Ok(serde_json::de::from_str(&row.get::<String, _>(2))?)
+impl FromRef<AppState> for Arc<AppConfig> {
+	fn from_ref(input: &AppState) -> Self {
+		input.config.clone()
+	}
 }
 
-pub async fn app() -> anyhow::Result<Router> {
-	let mut flows = HashMap::new();
+fn load_flow(row: &SqliteRow) -> anyhow::Result<Flow> {
+	let flow: FlowBuilder = serde_json::de::from_str(row.get("content"))?;
 
+	Ok(flow.simple())
+}
+
+pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
 	let pool = SqlitePoolOptions::new()
 		.connect_with(
 			SqliteConnectOptions::new()
-				.filename(var("DATABASE_FILE").unwrap_or("rssflow.db".to_string()))
+				.filename(&config.database_file)
 				.journal_mode(SqliteJournalMode::Wal)
 				.create_if_missing(true),
 		)
@@ -59,18 +65,27 @@ pub async fn app() -> anyhow::Result<Router> {
 
 	let mut conn = pool.acquire().await?;
 
-	for row in conn.fetch_all(sqlx::query!("SELECT * FROM flows")).await? {
-		let k = row.get::<String, _>(1);
-		if let Ok(flow) = load_flow(&row) {
-			flows.insert(k, Arc::new(flow.simple(DataKind::Feed)));
-		} else {
-			tracing::error!("Saved flow `{k}` failed to load");
-		}
-	}
+	let flows = conn
+		.fetch(sqlx::query!("SELECT * FROM flows"))
+		.filter_map(|f| async { f.ok() })
+		.filter_map(|row| async move {
+			let name: String = row.get("name");
+
+			if let Ok(flow) = load_flow(&row).map(Arc::new) {
+				tracing::info!("Loaded `{name}` flow");
+				Some((name, flow))
+			} else {
+				tracing::error!("Failed loading `{name}` flow");
+				None
+			}
+		})
+		.collect()
+		.await;
 
 	let state = AppState(Arc::new(AppStateInner {
 		flows: Mutex::new(flows),
 		pool,
+		config: Arc::new(config),
 	}));
 
 	Ok(

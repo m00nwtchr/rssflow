@@ -1,14 +1,16 @@
 #![warn(clippy::pedantic)]
-
-use crate::app::app;
+#![allow(clippy::module_name_repetitions)]
+use std::net::SocketAddr;
 
 mod app;
+mod config;
 mod convert;
+mod feed;
 mod flow;
 mod route;
 mod websub;
-mod feed;
-// mod rss;
+
+use crate::{app::app, config::AppConfig};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -17,8 +19,12 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 async fn main() -> anyhow::Result<()> {
 	tracing_subscriber::fmt::init();
 
-	let listener = tokio::net::TcpListener::bind("[::]:3434").await.unwrap();
-	axum::serve(listener, app().await?).await.unwrap();
+	let config = AppConfig::load()?;
+
+	let listener = tokio::net::TcpListener::bind(SocketAddr::new(config.address, config.port))
+		.await
+		.unwrap();
+	axum::serve(listener, app(config).await?).await.unwrap();
 
 	Ok(())
 }

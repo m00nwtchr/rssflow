@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use bytes::Bytes;
 use derive_more::From;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -22,12 +23,10 @@ use super::wasm::Wasm;
 
 #[async_trait]
 pub trait NodeTrait: Sync + Send {
-	fn inputs(&self) -> Box<[Arc<IO>]> {
-		Box::new([])
+	fn inputs(&self) -> &[Arc<IO>] {
+		&[]
 	}
-	fn outputs(&self) -> Box<[DataKind]> {
-		Box::new([])
-	}
+	fn outputs(&self) -> &[DataKind];
 
 	fn is_dirty(&self) -> bool {
 		let inputs = self.inputs();
@@ -37,20 +36,19 @@ pub trait NodeTrait: Sync + Send {
 
 	async fn run(&self) -> anyhow::Result<()>;
 
-	#[allow(unused_variables)]
-	fn set_outputs(&mut self, outputs: Vec<Arc<IO>>) {
-		unimplemented!();
+	fn set_output(&mut self, index: usize, output: Arc<IO>);
+	fn output(&mut self, output: Arc<IO>) {
+		self.set_output(0, output);
 	}
-	fn output(&mut self, output: Arc<IO>);
 
-	async fn websub(&self) -> anyhow::Result<Option<WebSub>> {
-		Ok(None)
+	fn web_sub(&self) -> Option<WebSub> {
+		None
 	}
 }
 
 #[async_trait]
 impl NodeTrait for Node {
-	fn inputs(&self) -> Box<[Arc<IO>]> {
+	fn inputs(&self) -> &[Arc<IO>] {
 		match self {
 			Self::Feed(n) => n.inputs(),
 			Self::Filter(n) => n.inputs(),
@@ -61,11 +59,10 @@ impl NodeTrait for Node {
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.inputs(),
 			Self::Other(n) => n.inputs(),
-			_ => unimplemented!(),
 		}
 	}
 
-	fn outputs(&self) -> Box<[DataKind]> {
+	fn outputs(&self) -> &[DataKind] {
 		match self {
 			Self::Feed(n) => n.outputs(),
 			Self::Filter(n) => n.outputs(),
@@ -76,7 +73,6 @@ impl NodeTrait for Node {
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.outputs(),
 			Self::Other(n) => n.outputs(),
-			_ => unimplemented!(),
 		}
 	}
 
@@ -91,7 +87,6 @@ impl NodeTrait for Node {
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.is_dirty(),
 			Self::Other(n) => n.is_dirty(),
-			_ => unimplemented!(),
 		}
 	}
 
@@ -106,22 +101,20 @@ impl NodeTrait for Node {
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.run().await,
 			Self::Other(n) => n.run().await,
-			_ => unimplemented!(),
 		}
 	}
 
-	fn set_outputs(&mut self, outputs: Vec<Arc<IO>>) {
+	fn set_output(&mut self, i: usize, output: Arc<IO>) {
 		match self {
-			Self::Feed(n) => n.set_outputs(outputs),
-			Self::Filter(n) => n.set_outputs(outputs),
+			Self::Feed(n) => n.set_output(i, output),
+			Self::Filter(n) => n.set_output(i, output),
 			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.set_outputs(outputs),
+			Self::Retrieve(n) => n.set_output(i, output),
 			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.set_outputs(outputs),
+			Self::Sanitise(n) => n.set_output(i, output),
 			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.set_outputs(outputs),
-			Self::Other(n) => n.set_outputs(outputs),
-			_ => unimplemented!(),
+			Self::Wasm(n) => n.set_output(i, output),
+			Self::Other(n) => n.set_output(i, output),
 		}
 	}
 
@@ -136,7 +129,20 @@ impl NodeTrait for Node {
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.output(output),
 			Self::Other(n) => n.output(output),
-			_ => unimplemented!(),
+		}
+	}
+
+	fn web_sub(&self) -> Option<WebSub> {
+		match self {
+			Self::Feed(n) => n.web_sub(),
+			Self::Filter(n) => n.web_sub(),
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.web_sub(),
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.web_sub(),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.web_sub(),
+			Self::Other(n) => n.web_sub(),
 		}
 	}
 }
@@ -158,21 +164,23 @@ pub enum Node {
 	Other(Box<dyn NodeTrait>),
 }
 
-#[derive(EnumDiscriminants, Serialize, Deserialize, Debug, From, Clone)]
+#[derive(EnumDiscriminants, Serialize, Deserialize, Debug, From, Clone, PartialEq)]
 #[strum_discriminants(name(DataKind), derive(Serialize, Deserialize))]
 #[serde(untagged)]
 pub enum Data {
 	Feed(atom_syndication::Feed),
 	Entry(atom_syndication::Entry),
+	WebSub(Bytes),
 	Vec(Vec<Data>),
 	Any(Box<Data>),
 }
 
 impl Data {
-	pub fn is_kind(&self, kind: &DataKind) -> bool {
+	pub fn is_kind(&self, kind: DataKind) -> bool {
 		match kind {
 			DataKind::Feed => matches!(self, Data::Feed(_)),
 			DataKind::Entry => matches!(self, Data::Entry(_)),
+			DataKind::WebSub => matches!(self, Data::WebSub(_)),
 			DataKind::Vec => matches!(self, Data::Vec(_)),
 			DataKind::Any => true,
 		}
@@ -182,6 +190,7 @@ impl Data {
 		match self {
 			Self::Feed(_) => DataKind::Feed,
 			Self::Entry(_) => DataKind::Entry,
+			Self::WebSub(_) => DataKind::WebSub,
 			Self::Vec(_) => DataKind::Vec,
 			Self::Any(data) => data.kind(),
 		}
@@ -214,10 +223,9 @@ impl IO {
 
 	pub fn accept(&self, data: impl Into<Data>) -> anyhow::Result<()> {
 		let data = data.into();
-		if data.is_kind(&self.kind) {
+		if data.is_kind(self.kind) {
 			let mut inner = self.inner.write();
-			inner.data.replace(data);
-			inner.dirty = true;
+			inner.dirty = inner.data.replace(data) != inner.data;
 			Ok(())
 		} else {
 			Err(anyhow!("Wrong data type"))
@@ -234,7 +242,7 @@ impl IO {
 
 	pub fn is_dirty(&self) -> bool {
 		let read = self.inner.read();
-		read.dirty || read.data.is_none()
+		read.dirty
 	}
 
 	pub fn clear(&self) {

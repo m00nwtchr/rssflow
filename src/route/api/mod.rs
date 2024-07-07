@@ -1,11 +1,5 @@
-use crate::{
-	app::AppState,
-	flow::{
-		node::{DataKind, Node},
-		FlowBuilder,
-	},
-	route::internal_error,
-};
+use std::sync::Arc;
+
 use axum::{
 	extract::{Path, State},
 	http::StatusCode,
@@ -15,9 +9,12 @@ use axum::{
 };
 use serde::Serialize;
 use sqlx::{Executor, Row, SqlitePool};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use uuid::{NoContext, Timestamp, Uuid};
+
+use super::internal_error;
+use crate::{
+	app::AppState,
+	flow::{node::NodeTrait, FlowBuilder},
+};
 
 #[derive(Serialize)]
 struct FlowResult {
@@ -52,11 +49,14 @@ async fn get_flow(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
 	let row = conn
-		.fetch_one(sqlx::query!("SELECT * FROM flows WHERE name = ?", name))
+		.fetch_one(sqlx::query!(
+			"SELECT content FROM flows WHERE name = ?",
+			name
+		))
 		.await
 		.map_err(internal_error)?;
 
-	Ok(row.get::<String, _>(1))
+	Ok(row.get::<String, _>("content"))
 }
 
 async fn update_flow(
@@ -67,14 +67,21 @@ async fn update_flow(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let json = serde_json::to_string(&flow).map_err(internal_error)?;
 
+	let flow = flow.simple();
+	flow.run()
+		.await
+		.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
+
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let update = conn
-		.fetch_optional(sqlx::query!("SELECT * FROM flows WHERE name = ?", name))
+	let out = if conn
+		.fetch_optional(sqlx::query_scalar!(
+			"SELECT 1 FROM flows WHERE name = ?",
+			name
+		))
 		.await
 		.map_err(internal_error)?
-		.is_some();
-
-	if update {
+		.is_some()
+	{
 		conn.execute(sqlx::query!(
 			"UPDATE flows SET content = ? WHERE name = ?",
 			json,
@@ -82,29 +89,37 @@ async fn update_flow(
 		))
 		.await
 		.map_err(internal_error)?;
-	} else {
-		let uuid = Uuid::new_v7(Timestamp::now(NoContext));
-		let blob = uuid.as_bytes().as_slice();
 
+		Ok(StatusCode::NO_CONTENT)
+	} else {
 		conn.execute(sqlx::query!(
-			"INSERT INTO flows (uuid, name, content) VALUES (?, ?, ?)",
-			blob,
+			"INSERT INTO flows (name, content) VALUES (?, ?)",
 			name,
 			json
 		))
 		.await
 		.map_err(internal_error)?;
-	}
-	state.flows.lock().await.insert(
-		name.clone(),
-		Arc::new(flow.simple(DataKind::Feed)),
-	);
 
-	Ok(if update {
-		StatusCode::NO_CONTENT
-	} else {
-		StatusCode::CREATED
-	})
+		Ok(StatusCode::CREATED)
+	};
+
+	if let Some(websub) = flow.web_sub() {
+		if let Some(public_url) = &state.config.public_url {
+			tracing::info!("Subscribe to {} at {}", websub.this, websub.hub);
+			websub
+				.subscribe(&name, public_url.as_str(), &mut conn)
+				.await
+				.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+		}
+	}
+
+	state
+		.flows
+		.lock()
+		.await
+		.insert(name.clone(), Arc::new(flow));
+
+	out
 }
 
 async fn delete_flow(

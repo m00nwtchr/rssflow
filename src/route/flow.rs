@@ -6,7 +6,11 @@ use axum::{
 	Router,
 };
 
-use crate::{app::AppState, flow::node::Data, route::Atom};
+use crate::{
+	app::AppState,
+	flow::node::{Data, NodeTrait},
+	route::Atom,
+};
 
 #[tracing::instrument(name = "run_flow_handler", skip(state))]
 pub async fn run(
@@ -14,11 +18,11 @@ pub async fn run(
 	State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	if let Some(flow) = state.flows.lock().await.get(&name).cloned() {
-		let Some(Data::Feed(feed)) = flow
-			.run()
+		flow.run()
 			.await
-			.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-		else {
+			.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+		let Some(Data::Feed(feed)) = flow.result() else {
 			return Err((StatusCode::INTERNAL_SERVER_ERROR, ":(".to_string()));
 		};
 

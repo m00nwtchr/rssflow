@@ -1,3 +1,8 @@
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 pub mod feed;
 #[cfg(feature = "filter")]
 pub mod filter;
@@ -9,25 +14,44 @@ pub mod sanitise;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-use crate::flow::node::{Data, DataKind, NodeTrait, IO};
-use node::Node;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use crate::websub::WebSub;
+use node::{Data, DataKind, Node, NodeTrait, IO};
 
 #[inline]
 fn feed_io() -> Arc<IO> {
 	Arc::new(IO::new(DataKind::Feed))
 }
 
+#[inline]
+fn feed_arr<const N: usize>() -> [Arc<IO>; N] {
+	std::array::from_fn(|_| feed_io())
+}
+
 pub struct Flow {
 	nodes: Mutex<Vec<Node>>,
 
-	output: Arc<IO>,
+	web_sub: parking_lot::Mutex<Option<WebSub>>,
+	inputs: Box<[Arc<IO>]>,
+	outputs: Box<[Arc<IO>]>,
 }
 
 impl Flow {
-	pub async fn run(&self) -> anyhow::Result<Option<Data>> {
+	pub fn result(&self) -> Option<Data> {
+		self.outputs.first()?.get()
+	}
+}
+
+#[async_trait]
+impl NodeTrait for Flow {
+	fn inputs(&self) -> &[Arc<IO>] {
+		self.inputs.as_ref()
+	}
+
+	fn outputs(&self) -> &[DataKind] {
+		&[]
+	}
+
+	async fn run(&self) -> anyhow::Result<()> {
 		let nodes = self.nodes.lock().await;
 		for node in nodes.iter() {
 			if node.is_dirty() {
@@ -40,7 +64,20 @@ impl Flow {
 				}
 			}
 		}
-		Ok(self.output.get())
+
+		if let Some(web_sub) = nodes.first().and_then(NodeTrait::web_sub) {
+			self.web_sub.lock().replace(web_sub);
+		}
+
+		Ok(())
+	}
+
+	fn set_output(&mut self, _index: usize, _output: Arc<IO>) {
+		unimplemented!()
+	}
+
+	fn web_sub(&self) -> Option<WebSub> {
+		self.web_sub.lock().clone()
 	}
 }
 
@@ -59,25 +96,48 @@ impl FlowBuilder {
 		self
 	}
 
-	pub fn simple(self, output: DataKind) -> Flow {
-		let mut nodes = self.nodes;
-		let output = Arc::new(IO::new(output));
+	pub fn simple(mut self) -> Flow {
+		let inputs = self
+			.nodes
+			.first()
+			.iter()
+			.flat_map(|n| n.inputs())
+			.cloned()
+			.collect();
+		let outputs: Box<[Arc<IO>]> = self
+			.nodes
+			.last()
+			.iter()
+			.flat_map(|n| n.outputs())
+			.map(|d| Arc::new(IO::new(*d)))
+			.collect();
 
-		let mut io = Some(output.clone());
-		for node in nodes.iter_mut().rev() {
-			if let Some(ioi) = io {
-				node.output(ioi);
-				io = None;
-			}
+		if !self.nodes.is_empty() {
+			let mut io = None;
+			let mut flag = true;
 
-			if let Some(input) = node.inputs().get(0) {
-				io.replace(input.clone());
+			for node in self.nodes.iter_mut().rev() {
+				if let Some(ioi) = io {
+					node.set_output(0, ioi);
+					io = None;
+				} else if flag {
+					flag = false;
+					for (j, output) in outputs.iter().enumerate() {
+						node.set_output(j, output.clone());
+					}
+				}
+
+				if let Some(input) = node.inputs().first() {
+					io.replace(input.clone());
+				}
 			}
 		}
 
 		Flow {
-			nodes: Mutex::new(nodes),
-			output,
+			nodes: Mutex::new(self.nodes),
+			inputs,
+			outputs,
+			web_sub: parking_lot::Mutex::default(),
 		}
 	}
 }
@@ -90,7 +150,7 @@ impl From<Vec<Node>> for FlowBuilder {
 
 #[cfg(test)]
 mod test {
-	use super::node::{Data, DataKind, Field};
+	use super::node::Field;
 	use crate::flow::{
 		feed::Feed,
 		filter::{Filter, Kind},
@@ -98,7 +158,6 @@ mod test {
 		sanitise::Sanitise,
 		FlowBuilder,
 	};
-	use anyhow::anyhow;
 	use scraper::Selector;
 	use std::time::Duration;
 
