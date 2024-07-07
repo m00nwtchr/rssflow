@@ -9,6 +9,7 @@ use axum::{
 };
 use serde::Serialize;
 use sqlx::SqlitePool;
+use uuid::Uuid;
 
 use super::internal_error;
 use crate::{
@@ -120,12 +121,41 @@ async fn delete_flow(
 	State(state): State<AppState>,
 	State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if state.flows.lock().await.remove(&name).is_some() {
+	if let Some(flow) = state.flows.lock().await.remove(&name) {
 		let mut conn = pool.acquire().await.map_err(internal_error)?;
 		sqlx::query!("DELETE FROM flows WHERE name = ?", name)
 			.execute(&mut *conn)
 			.await
 			.map_err(internal_error)?;
+
+		if let Some(public_url) = &state.config.public_url {
+			if let Some(web_sub) = flow.web_sub() {
+				let count = sqlx::query_scalar!(
+					r#"
+			        SELECT COUNT(*)
+			        FROM websub
+			        WHERE topic = ?
+			          AND NOT EXISTS (
+			              SELECT 1
+			              FROM websub_flows
+			              WHERE websub_flows.topic = websub.topic
+			          )
+			        LIMIT 1
+		            "#,
+					web_sub.topic
+				)
+				.fetch_one(&mut *conn)
+				.await
+				.map_err(internal_error)?;
+
+				if count > 0 {
+					web_sub
+						.unsubscribe(public_url.as_str(), &mut conn)
+						.await
+						.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+				}
+			}
+		}
 	}
 
 	Ok(StatusCode::NO_CONTENT)

@@ -144,6 +144,8 @@ pub async fn verify(
 			}
 			Verification::Unsubscribe { topic, challenge } => {
 				if !record.subscribed && topic.eq(&record.topic) {
+					tracing::info!("Unsubscribed from `{}`", record.topic);
+
 					sqlx::query!("DELETE FROM websub WHERE topic = ?", record.topic)
 						.execute(&mut *conn)
 						.await

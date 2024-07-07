@@ -64,4 +64,33 @@ impl WebSub {
 		resp.error_for_status()?;
 		Ok(record.is_none())
 	}
+
+	pub async fn unsubscribe(
+		&self,
+		public_url: &str,
+		conn: &mut SqliteConnection,
+	) -> anyhow::Result<()> {
+		let uuid = sqlx::query_scalar!(
+			r#"SELECT uuid as "uuid!: Uuid" FROM websub WHERE topic = ?"#,
+			self.topic
+		)
+		.fetch_one(&mut *conn)
+		.await?;
+
+		let callback = format!("{public_url}websub/{uuid}");
+		let rb = reqwest::Client::new().post(&self.hub).form(&[
+			("hub.callback", callback.as_str()),
+			("hub.mode", "unsubscribe"),
+			("hub.topic", &self.topic),
+		]);
+
+		sqlx::query!("UPDATE websub SET subscribed = 0 WHERE uuid = ?", uuid)
+			.execute(&mut *conn)
+			.await?;
+
+		let resp = rb.send().await?;
+		tracing::info!("Response: {}", resp.status());
+		resp.error_for_status()?;
+		Ok(())
+	}
 }
