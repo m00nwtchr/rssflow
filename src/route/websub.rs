@@ -1,3 +1,5 @@
+use std::{str::FromStr, time::Duration};
+
 use anyhow::anyhow;
 use axum::{
 	body::Bytes,
@@ -9,9 +11,9 @@ use axum::{
 };
 use chrono::Utc;
 use serde::Deserialize;
+use serde_with::{serde_as, DurationSeconds};
 use sha2::{Sha256, Sha384, Sha512};
 use sqlx::SqlitePool;
-use std::{str::FromStr, time::Duration};
 use uuid::Uuid;
 
 use super::internal_error;
@@ -30,21 +32,31 @@ pub async fn receive(
 	headers: HeaderMap,
 	body: Bytes,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	let uuid = uuid.as_bytes().as_slice();
-
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	if let Some(record) = sqlx::query!("SELECT flow, secret FROM websub WHERE uuid = ?", uuid)
+	let record = sqlx::query!("SELECT secret, topic FROM websub WHERE uuid = ?", uuid)
 		.fetch_optional(&mut *conn)
 		.await
-		.map_err(internal_error)?
-	{
+		.map_err(internal_error)?;
+
+	if let Some(record) = record {
+		let flows = sqlx::query_scalar!(
+			"SELECT flow FROM websub_flows WHERE topic = ?",
+			record.topic
+		)
+		.fetch_all(&mut *conn)
+		.await
+		.map_err(internal_error)?;
+		if flows.is_empty() {
+			return Ok(StatusCode::OK);
+		}
+
 		let signature = headers.get(X_HUB_SIGNATURE);
 
 		let Some(signature) = signature
 			.and_then(|v| v.to_str().ok())
 			.and_then(|s| XHubSignature::from_str(s).ok())
 		else {
-			return Err((StatusCode::FORBIDDEN, StatusCode::FORBIDDEN.to_string()));
+			return Ok(StatusCode::OK);
 		};
 
 		let verified = signature
@@ -52,32 +64,30 @@ pub async fn receive(
 			.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
 
 		if verified {
-			let Some(flow) = state.flows.lock().await.get(&record.flow).cloned() else {
-				return Err((StatusCode::NOT_FOUND, "Invalid subscription".to_string()));
-			};
+			tracing::info!("Received WebSub push for `{}`", record.topic);
+			for name in flows {
+				let Some(flow) = state.flows.lock().await.get(&name).cloned() else {
+					return Ok(StatusCode::OK);
+				};
 
-			if let Some(input) = flow
-				.inputs()
-				.iter()
-				.find(|i| matches!(i.kind(), DataKind::WebSub))
-			{
-				tracing::info!("Received WebSub push for `{}`", record.flow);
-				input
-					.accept(body)
-					.map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+				// TODO: Proper handling for multiple WebSub-type inputs in one flow
+				if let Some(input) = flow
+					.inputs()
+					.iter()
+					.find(|i| matches!(i.kind(), DataKind::WebSub))
+				{
+					let _ = input.accept(body.clone());
 
-				flow.run()
-					.await
-					.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+					tokio::spawn(async move { flow.run().await });
+				}
 			}
-		} else {
-			return Err((StatusCode::FORBIDDEN, "Invalid signature".to_string()));
 		}
 	}
 
 	Ok(StatusCode::OK)
 }
 
+#[serde_as]
 #[derive(Deserialize, Debug)]
 #[serde(tag = "hub.mode", rename_all = "lowercase")]
 pub enum Verification {
@@ -86,7 +96,8 @@ pub enum Verification {
 		topic: String,
 		#[serde(rename = "hub.challenge")]
 		challenge: String,
-		#[serde(rename = "hub.lease_seconds", deserialize_with = "de::deserialize")]
+		#[serde_as(as = "DurationSeconds<String>")]
+		#[serde(rename = "hub.lease_seconds")]
 		lease_seconds: Duration,
 	},
 	Unsubscribe {
@@ -97,15 +108,12 @@ pub enum Verification {
 	},
 }
 
+#[tracing::instrument(skip(pool, verification))]
 pub async fn verify(
 	Path(uuid): Path<Uuid>,
 	State(pool): State<SqlitePool>,
 	Query(verification): Query<Verification>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	let uuid = uuid.as_bytes().as_slice();
-
-	tracing::info!("{verification:?}");
-
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
 	if let Some(record) = sqlx::query!("SELECT subscribed, topic FROM websub WHERE uuid = ?", uuid)
 		.fetch_optional(&mut *conn)
@@ -120,9 +128,9 @@ pub async fn verify(
 			} => {
 				let lease_end = Utc::now() + lease_seconds;
 				sqlx::query!(
-					"UPDATE websub SET lease_end = ? WHERE uuid = ?",
+					"UPDATE websub SET lease_end = ? WHERE topic = ?",
 					lease_end,
-					uuid
+					record.topic
 				)
 				.execute(&mut *conn)
 				.await
@@ -136,7 +144,7 @@ pub async fn verify(
 			}
 			Verification::Unsubscribe { topic, challenge } => {
 				if !record.subscribed && topic.eq(&record.topic) {
-					sqlx::query!("DELETE FROM websub WHERE uuid = ?", uuid)
+					sqlx::query!("DELETE FROM websub WHERE topic = ?", record.topic)
 						.execute(&mut *conn)
 						.await
 						.map_err(internal_error)?;
@@ -155,21 +163,6 @@ pub fn router() -> Router<AppState> {
 	Router::new()
 		.route("/:uuid", post(receive))
 		.route("/:uuid", get(verify))
-}
-
-mod de {
-	use serde::{Deserialize, Deserializer};
-	use std::time::Duration;
-
-	pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let s = String::deserialize(deserializer)?
-			.parse()
-			.map_err(serde::de::Error::custom)?;
-		Ok(Duration::from_secs(s))
-	}
 }
 
 #[derive(Debug)]

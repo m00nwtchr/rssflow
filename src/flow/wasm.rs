@@ -2,7 +2,6 @@ use std::{fmt::Write, sync::Arc};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use wasmtime::{Config, Engine, Linker, Module, Store, TypedFunc};
 use wasmtime_wasi::{preview1, preview1::WasiP1Ctx, WasiCtxBuilder};

@@ -87,11 +87,22 @@ async fn update_flow(
 
 	if let Some(websub) = flow.web_sub() {
 		if let Some(public_url) = &state.config.public_url {
-			tracing::info!("Subscribe to {} at {}", websub.this, websub.hub);
-			websub
-				.subscribe(&name, public_url.as_str(), &mut conn)
+			if websub
+				.subscribe(public_url.as_str(), &mut conn)
 				.await
-				.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+				.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?
+			{
+				tracing::info!("Subscribed to `{}` at `{}`", websub.topic, websub.hub);
+			}
+
+			sqlx::query!(
+				"INSERT OR IGNORE INTO websub_flows (topic, flow) VALUES (?, ?)",
+				websub.topic,
+				name
+			)
+			.execute(&mut *conn)
+			.await
+			.map_err(internal_error)?;
 		}
 	}
 

@@ -1,15 +1,15 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT flow, secret FROM websub WHERE uuid = ?",
+  "query": "SELECT secret, topic FROM websub WHERE uuid = ?",
   "describe": {
     "columns": [
       {
-        "name": "flow",
+        "name": "secret",
         "ordinal": 0,
         "type_info": "Text"
       },
       {
-        "name": "secret",
+        "name": "topic",
         "ordinal": 1,
         "type_info": "Text"
       }
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "169714aa3b322fc6f3d6d50ee1db5b9becc2a6fa649448fa73001d5aab898b55"
+  "hash": "78a258508ca9b7ebaa565da748c471de6b0dcc27b12a13c68a0e2e10300e09d3"
 }

@@ -1,29 +1,32 @@
 use rand::{distributions::Uniform, Rng};
 use serde::{Deserialize, Serialize};
-use sqlx::{Sqlite, SqliteConnection};
+use sqlx::SqliteConnection;
 use uuid::{NoContext, Timestamp, Uuid};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WebSub {
+	pub topic: String,
 	pub hub: String,
-	pub this: String,
 }
 
 impl WebSub {
+	/// Subscribe to the given topic, returns true if this is a new subscription, false if the subscription is renewed.
 	pub async fn subscribe(
 		&self,
-		flow: &str,
 		public_url: &str,
 		conn: &mut SqliteConnection,
-	) -> anyhow::Result<()> {
-		let record = sqlx::query!("SELECT uuid, secret FROM websub WHERE flow = ?", flow)
-			.fetch_optional(&mut *conn)
-			.await?;
+	) -> anyhow::Result<bool> {
+		let record = sqlx::query!(
+			r#"SELECT uuid as "uuid!: Uuid", secret FROM websub WHERE topic = ?"#,
+			self.topic
+		)
+		.fetch_optional(&mut *conn)
+		.await?;
 
 		let uuid = if let Some(record) = &record {
-			Uuid::from_slice(&record.uuid)?
+			&record.uuid
 		} else {
-			Uuid::new_v7(Timestamp::now(NoContext))
+			&Uuid::new_v7(Timestamp::now(NoContext))
 		};
 
 		let secret = if let Some(record) = &record {
@@ -40,19 +43,17 @@ impl WebSub {
 		let rb = reqwest::Client::new().post(&self.hub).form(&[
 			("hub.callback", callback.as_str()),
 			("hub.mode", "subscribe"),
-			("hub.topic", &self.this),
-			("hub.secret", &secret),
+			("hub.topic", &self.topic),
+			("hub.secret", secret),
 		]);
 
-		let uuid = uuid.as_bytes().as_slice();
 		if record.is_none() {
 			sqlx::query!(
-				"INSERT INTO websub (uuid, hub, topic, flow, secret) VALUES (?, ?, ?, ?, ?)",
+				"INSERT INTO websub (uuid, topic, hub, secret) VALUES (?, ?, ?, ?)",
 				uuid,
+				self.topic,
 				self.hub,
-				self.this,
-				flow,
-				secret
+				secret,
 			)
 			.execute(&mut *conn)
 			.await?;
@@ -61,6 +62,6 @@ impl WebSub {
 		let resp = rb.send().await?;
 		tracing::info!("Response: {}", resp.status());
 		resp.error_for_status()?;
-		Ok(())
+		Ok(record.is_none())
 	}
 }

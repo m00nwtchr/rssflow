@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "DELETE FROM websub WHERE uuid = ?",
+  "query": "DELETE FROM websub WHERE topic = ?",
   "describe": {
     "columns": [],
     "parameters": {
@@ -8,5 +8,5 @@
     },
     "nullable": []
   },
-  "hash": "4a49730dc99ab59ed65158455baa498466ad9cbdad7340b703f7a9ee5a151078"
+  "hash": "9a8b42ec963c30ca62f7a1ae76bbd3c063b5db77e2a578e5400f5054c1235326"
 }

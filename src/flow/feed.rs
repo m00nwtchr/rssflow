@@ -1,12 +1,14 @@
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use serde_with::{serde_as, DurationSeconds};
 use url::Url;
 
 use super::node::{Data, DataKind, NodeTrait, IO};
@@ -22,10 +24,12 @@ fn mutex_now() -> Mutex<Instant> {
 	Mutex::new(Instant::now())
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Feed {
 	url: Url,
 
+	#[serde_as(as = "DurationSeconds")]
 	ttl: Duration,
 	#[serde(skip, default = "mutex_now")]
 	last_fetch: Mutex<Instant>,
@@ -98,7 +102,7 @@ impl NodeTrait for Feed {
 			if let (Some(hub), Some(this)) = (hub, this) {
 				self.web_sub.lock().replace(WebSub {
 					hub: hub.href.clone(),
-					this: this.href.clone(),
+					topic: this.href.clone(),
 				});
 			}
 		}

@@ -24,10 +24,12 @@ sha1 = ["dep:sha1"]
 axum = { version = "0.7", features = ["macros"] }
 url = { version = "2.5", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls"] }
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "chrono"] }
-bytes = { version = "1.6", features = ["serde"] }
 
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
+uuid = { version = "1.9", features = ["serde", "v7"] }
 chrono = "0.4"
+
+bytes = { version = "1.6", features = ["serde"] }
 hmac = "0.12"
 sha2 = "0.10"
 sha1 = { version = "0.10", optional = true }
@@ -48,7 +50,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 
-uuid = { version = "1.9.1", features = ["serde", "v7"] }
+
 strum = { version = "0.26", features = ["derive"] }
 derive_more = "0.99"
 parking_lot = "0.12"
@@ -61,3 +63,4 @@ scraper = { version = "0.19", optional = true, git = "https://github.com/causal-
 serde_regex = { version = "1", optional = true }
 wasmtime = { version = "22", optional = true }
 wasmtime-wasi = { version = "22", optional = true }
+serde_with = "3.8.3"
