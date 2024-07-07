@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env::var, ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 use axum::{extract::FromRef, routing::get, Router};
 use futures::StreamExt;
@@ -7,10 +7,10 @@ use sqlx::{
 	Executor, Row, SqlitePool,
 };
 use tokio::sync::Mutex;
-use uuid::Uuid;
 
 use crate::{
-	flow::{node::DataKind, Flow, FlowBuilder},
+	config::AppConfig,
+	flow::{Flow, FlowBuilder},
 	route,
 };
 
@@ -18,6 +18,7 @@ use crate::{
 pub struct AppStateInner {
 	pub flows: Mutex<HashMap<String, Arc<Flow>>>,
 	pub pool: SqlitePool,
+	pub config: Arc<AppConfig>,
 }
 
 #[derive(Clone)]
@@ -39,17 +40,23 @@ impl FromRef<AppState> for SqlitePool {
 	}
 }
 
+impl FromRef<AppState> for Arc<AppConfig> {
+	fn from_ref(input: &AppState) -> Self {
+		input.config.clone()
+	}
+}
+
 fn load_flow(row: &SqliteRow) -> anyhow::Result<Flow> {
 	let flow: FlowBuilder = serde_json::de::from_str(row.get("content"))?;
 
-	Ok(flow.simple(DataKind::Feed, Uuid::from_slice(row.get("uuid"))?))
+	Ok(flow.simple())
 }
 
-pub async fn app() -> anyhow::Result<Router> {
+pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
 	let pool = SqlitePoolOptions::new()
 		.connect_with(
 			SqliteConnectOptions::new()
-				.filename(var("DATABASE_FILE").unwrap_or("rssflow.db".to_string()))
+				.filename(&config.database_file)
 				.journal_mode(SqliteJournalMode::Wal)
 				.create_if_missing(true),
 		)
@@ -78,6 +85,7 @@ pub async fn app() -> anyhow::Result<Router> {
 	let state = AppState(Arc::new(AppStateInner {
 		flows: Mutex::new(flows),
 		pool,
+		config: Arc::new(config),
 	}));
 
 	Ok(

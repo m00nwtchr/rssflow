@@ -1,5 +1,7 @@
 use std::{cmp::min, sync::Arc};
 
+use super::node::{Data, DataKind, NodeTrait, IO};
+use crate::flow::feed_arr;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use atom_syndication::ContentBuilder;
@@ -7,15 +9,13 @@ use futures::stream::{self, StreamExt};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
-use super::node::{Data, DataKind, NodeTrait, IO};
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve {
 	#[serde(with = "serde_selector")]
 	content: Selector,
 
-	#[serde(skip, default = "super::feed_io")]
-	input: Arc<IO>,
+	#[serde(skip, default = "super::feed_arr")]
+	inputs: [Arc<IO>; 1],
 	#[serde(skip, default = "super::feed_io")]
 	output: Arc<IO>,
 }
@@ -24,7 +24,7 @@ impl Retrieve {
 	pub fn new(content: Selector) -> Self {
 		Self {
 			content,
-			input: Arc::new(IO::new(DataKind::Feed)),
+			inputs: feed_arr(),
 			output: Arc::new(IO::new(DataKind::Feed)),
 		}
 	}
@@ -56,17 +56,17 @@ async fn get_content(
 
 #[async_trait]
 impl NodeTrait for Retrieve {
-	fn inputs(&self) -> Box<[Arc<IO>]> {
-		Box::new([self.input.clone()])
+	fn inputs(&self) -> &[Arc<IO>] {
+		&self.inputs
 	}
 
-	fn outputs(&self) -> Box<[DataKind]> {
-		Box::new([DataKind::Feed])
+	fn outputs(&self) -> &[DataKind] {
+		&[DataKind::Feed]
 	}
 
 	#[tracing::instrument(name = "retrieve_node", skip(self))]
 	async fn run(&self) -> anyhow::Result<()> {
-		let Some(Data::Feed(mut atom)) = self.input.get() else {
+		let Some(Data::Feed(mut atom)) = self.inputs[0].get() else {
 			return Err(anyhow!(""));
 		};
 
@@ -82,7 +82,7 @@ impl NodeTrait for Retrieve {
 		self.output.accept(atom)
 	}
 
-	fn output(&mut self, output: Arc<IO>) {
+	fn set_output(&mut self, _index: usize, output: Arc<IO>) {
 		self.output = output;
 	}
 }

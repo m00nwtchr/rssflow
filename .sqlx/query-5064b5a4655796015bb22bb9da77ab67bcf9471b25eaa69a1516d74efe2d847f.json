@@ -1,26 +1,26 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT * FROM flows",
+  "query": "SELECT subscribed, topic FROM websub WHERE uuid = ?",
   "describe": {
     "columns": [
       {
-        "name": "name",
+        "name": "subscribed",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Bool"
       },
       {
-        "name": "content",
+        "name": "topic",
         "ordinal": 1,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false,
       false
     ]
   },
-  "hash": "3a4fc563ae11c31b134720fd660ef3aabcd3f8c13961f472212236b7790ee527"
+  "hash": "5064b5a4655796015bb22bb9da77ab67bcf9471b25eaa69a1516d74efe2d847f"
 }

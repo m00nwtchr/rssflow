@@ -12,16 +12,15 @@ use pipe::{MyInputPipe, MyOutputPipe};
 
 pub struct Wasm {
 	store: Mutex<Store<WasiP1Ctx>>,
+	func: TypedFunc<(), ()>,
 
 	stdin: MyInputPipe,
 	stdout: MyOutputPipe,
 
-	func: TypedFunc<(), ()>,
-
 	inputs: Vec<Arc<IO>>,
 	outputs: Vec<Arc<IO>>,
 
-	output_types: Box<[DataKind]>,
+	output_types: Vec<DataKind>,
 }
 
 impl Wasm {
@@ -58,25 +57,26 @@ impl Wasm {
 
 		Ok(Self {
 			store: Mutex::new(store),
+			func,
+
 			stdin,
 			stdout,
-			func,
 
 			inputs: inputs.iter().map(|d| Arc::new(IO::new(*d))).collect(),
 			outputs: Vec::new(),
-			output_types: outputs.iter().copied().collect(),
+			output_types: outputs.to_vec(),
 		})
 	}
 }
 
 #[async_trait]
 impl NodeTrait for Wasm {
-	fn inputs(&self) -> Box<[Arc<IO>]> {
-		self.inputs.iter().cloned().collect()
+	fn inputs(&self) -> &[Arc<IO>] {
+		self.inputs.as_slice()
 	}
 
-	fn outputs(&self) -> Box<[DataKind]> {
-		self.output_types.clone()
+	fn outputs(&self) -> &[DataKind] {
+		self.output_types.as_slice()
 	}
 
 	#[tracing::instrument(name = "wasm_node", skip(self))]
@@ -108,11 +108,11 @@ impl NodeTrait for Wasm {
 		Ok(())
 	}
 
-	fn set_outputs(&mut self, outputs: Vec<Arc<IO>>) {
-		self.outputs = outputs;
+	fn set_output(&mut self, index: usize, output: Arc<IO>) {
+		self.outputs.insert(index, output);
 	}
 	fn output(&mut self, output: Arc<IO>) {
-		self.outputs = vec![output];
+		self.outputs.push(output);
 	}
 }
 
