@@ -10,7 +10,7 @@ use axum::{
 use chrono::Utc;
 use serde::Deserialize;
 use sha2::{Sha256, Sha384, Sha512};
-use sqlx::{Executor, Row, SqlitePool};
+use sqlx::SqlitePool;
 use std::{str::FromStr, time::Duration};
 use uuid::Uuid;
 
@@ -33,15 +33,11 @@ pub async fn receive(
 	let uuid = uuid.as_bytes().as_slice();
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	if let Some(row) = conn
-		.fetch_optional(sqlx::query!(
-			"SELECT flow, secret FROM websub WHERE uuid = ?",
-			uuid
-		))
+	if let Some(record) = sqlx::query!("SELECT flow, secret FROM websub WHERE uuid = ?", uuid)
+		.fetch_optional(&mut *conn)
 		.await
 		.map_err(internal_error)?
 	{
-		let secret: &str = row.get("secret");
 		let signature = headers.get(X_HUB_SIGNATURE);
 
 		let Some(signature) = signature
@@ -52,27 +48,11 @@ pub async fn receive(
 		};
 
 		let verified = signature
-			.verify(secret.as_bytes(), &body)
+			.verify(record.secret.as_bytes(), &body)
 			.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
 
-		// let verified = if let Some(secret) = secret {
-		// 	let Some(signature) = signature
-		// 		.and_then(|v| v.to_str().ok())
-		// 		.and_then(|s| XHubSignature::from_str(s).ok())
-		// 	else {
-		// 		return Err((StatusCode::FORBIDDEN, StatusCode::FORBIDDEN.to_string()));
-		// 	};
-		//
-		// 	signature
-		// 		.verify(secret, &body)
-		// 		.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?
-		// } else {
-		// 	signature.is_none()
-		// };
-
 		if verified {
-			let flow_name: &str = row.get("flow");
-			let Some(flow) = state.flows.lock().await.get(flow_name).cloned() else {
+			let Some(flow) = state.flows.lock().await.get(&record.flow).cloned() else {
 				return Err((StatusCode::NOT_FOUND, "Invalid subscription".to_string()));
 			};
 
@@ -81,7 +61,7 @@ pub async fn receive(
 				.iter()
 				.find(|i| matches!(i.kind(), DataKind::WebSub))
 			{
-				tracing::info!("Received WebSub push for `{flow_name}`");
+				tracing::info!("Received WebSub push for `{}`", record.flow);
 				input
 					.accept(body)
 					.map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
@@ -127,17 +107,11 @@ pub async fn verify(
 	tracing::info!("{verification:?}");
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	if let Some(row) = conn
-		.fetch_optional(sqlx::query!(
-			"SELECT subscribed, topic FROM websub WHERE uuid = ?",
-			uuid
-		))
+	if let Some(record) = sqlx::query!("SELECT subscribed, topic FROM websub WHERE uuid = ?", uuid)
+		.fetch_optional(&mut *conn)
 		.await
 		.map_err(internal_error)?
 	{
-		let subscribed = row.get("subscribed");
-		let my_topic: &str = row.get("topic");
-
 		match verification {
 			Verification::Subscribe {
 				topic,
@@ -145,23 +119,25 @@ pub async fn verify(
 				lease_seconds,
 			} => {
 				let lease_end = Utc::now() + lease_seconds;
-				conn.execute(sqlx::query!(
+				sqlx::query!(
 					"UPDATE websub SET lease_end = ? WHERE uuid = ?",
 					lease_end,
 					uuid
-				))
+				)
+				.execute(&mut *conn)
 				.await
 				.map_err(internal_error)?;
 
-				if subscribed && topic.eq(my_topic) {
+				if record.subscribed && topic.eq(&record.topic) {
 					Ok((StatusCode::OK, challenge))
 				} else {
 					Err((StatusCode::BAD_REQUEST, "Bad request".to_string()))
 				}
 			}
 			Verification::Unsubscribe { topic, challenge } => {
-				if !subscribed && topic.eq(my_topic) {
-					conn.execute(sqlx::query!("DELETE FROM websub WHERE uuid = ?", uuid))
+				if !record.subscribed && topic.eq(&record.topic) {
+					sqlx::query!("DELETE FROM websub WHERE uuid = ?", uuid)
+						.execute(&mut *conn)
 						.await
 						.map_err(internal_error)?;
 					Ok((StatusCode::OK, challenge))

@@ -8,7 +8,7 @@ use axum::{
 	Json, Router,
 };
 use serde::Serialize;
-use sqlx::{Executor, Row, SqlitePool};
+use sqlx::SqlitePool;
 
 use super::internal_error;
 use crate::{
@@ -19,44 +19,31 @@ use crate::{
 #[derive(Serialize)]
 struct FlowResult {
 	name: String,
-	flow: serde_json::value::Value,
+	content: serde_json::value::Value,
 }
 
 async fn get_flows(
 	State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let rows: anyhow::Result<Vec<_>> = conn
-		.fetch_all(sqlx::query!("SELECT * FROM flows"))
+	let results = sqlx::query_as!(FlowResult, "SELECT name, content FROM flows")
+		.fetch_all(&mut *conn)
 		.await
-		.map_err(internal_error)?
-		.into_iter()
-		.map(|s| -> anyhow::Result<FlowResult> {
-			Ok(FlowResult {
-				name: s.get::<String, _>(0),
-				flow: serde_json::from_str(&s.get::<String, _>(1))?,
-			})
-		})
-		.collect();
+		.map_err(internal_error)?;
 
-	Ok(Json(rows.map_err(|e| {
-		(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-	})?))
+	Ok(Json(results))
 }
 async fn get_flow(
 	Path(name): Path<String>,
 	State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let row = conn
-		.fetch_one(sqlx::query!(
-			"SELECT content FROM flows WHERE name = ?",
-			name
-		))
+	let content = sqlx::query_scalar!("SELECT content FROM flows WHERE name = ?", name)
+		.fetch_one(&mut *conn)
 		.await
 		.map_err(internal_error)?;
 
-	Ok(row.get::<String, _>("content"))
+	Ok(content)
 }
 
 async fn update_flow(
@@ -73,30 +60,25 @@ async fn update_flow(
 		.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let out = if conn
-		.fetch_optional(sqlx::query_scalar!(
-			"SELECT 1 FROM flows WHERE name = ?",
-			name
-		))
+	let out = if sqlx::query_scalar!("SELECT 1 FROM flows WHERE name = ?", name)
+		.fetch_optional(&mut *conn)
 		.await
 		.map_err(internal_error)?
 		.is_some()
 	{
-		conn.execute(sqlx::query!(
-			"UPDATE flows SET content = ? WHERE name = ?",
-			json,
-			name
-		))
-		.await
-		.map_err(internal_error)?;
+		sqlx::query!("UPDATE flows SET content = ? WHERE name = ?", json, name)
+			.execute(&mut *conn)
+			.await
+			.map_err(internal_error)?;
 
 		Ok(StatusCode::NO_CONTENT)
 	} else {
-		conn.execute(sqlx::query!(
+		sqlx::query!(
 			"INSERT INTO flows (name, content) VALUES (?, ?)",
 			name,
 			json
-		))
+		)
+		.execute(&mut *conn)
 		.await
 		.map_err(internal_error)?;
 
@@ -129,7 +111,8 @@ async fn delete_flow(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	if state.flows.lock().await.remove(&name).is_some() {
 		let mut conn = pool.acquire().await.map_err(internal_error)?;
-		conn.execute(sqlx::query!("DELETE FROM flows WHERE name = ?", name))
+		sqlx::query!("DELETE FROM flows WHERE name = ?", name)
+			.execute(&mut *conn)
 			.await
 			.map_err(internal_error)?;
 	}

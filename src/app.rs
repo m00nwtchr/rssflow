@@ -3,8 +3,8 @@ use std::{collections::HashMap, ops::Deref, sync::Arc};
 use axum::{extract::FromRef, routing::get, Router};
 use futures::StreamExt;
 use sqlx::{
-	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow},
-	Executor, Row, SqlitePool,
+	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+	SqlitePool,
 };
 use tokio::sync::Mutex;
 
@@ -46,8 +46,8 @@ impl FromRef<AppState> for Arc<AppConfig> {
 	}
 }
 
-fn load_flow(row: &SqliteRow) -> anyhow::Result<Flow> {
-	let flow: FlowBuilder = serde_json::de::from_str(row.get("content"))?;
+fn load_flow(content: &str) -> anyhow::Result<Flow> {
+	let flow: FlowBuilder = serde_json::de::from_str(content)?;
 
 	Ok(flow.simple())
 }
@@ -65,17 +65,15 @@ pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
 
 	let mut conn = pool.acquire().await?;
 
-	let flows = conn
-		.fetch(sqlx::query!("SELECT * FROM flows"))
+	let flows = sqlx::query!("SELECT * FROM flows")
+		.fetch(&mut *conn)
 		.filter_map(|f| async { f.ok() })
-		.filter_map(|row| async move {
-			let name: String = row.get("name");
-
-			if let Ok(flow) = load_flow(&row).map(Arc::new) {
-				tracing::info!("Loaded `{name}` flow");
-				Some((name, flow))
+		.filter_map(|record| async move {
+			if let Ok(flow) = load_flow(&record.content).map(Arc::new) {
+				tracing::info!("Loaded `{}` flow", record.name);
+				Some((record.name, flow))
 			} else {
-				tracing::error!("Failed loading `{name}` flow");
+				tracing::error!("Failed loading `{}` flow", record.name);
 				None
 			}
 		})

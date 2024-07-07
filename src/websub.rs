@@ -1,6 +1,6 @@
 use rand::{distributions::Uniform, Rng};
 use serde::{Deserialize, Serialize};
-use sqlx::{pool::PoolConnection, Executor, Row, Sqlite};
+use sqlx::{Sqlite, SqliteConnection};
 use uuid::{NoContext, Timestamp, Uuid};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -14,25 +14,22 @@ impl WebSub {
 		&self,
 		flow: &str,
 		public_url: &str,
-		conn: &mut PoolConnection<Sqlite>,
+		conn: &mut SqliteConnection,
 	) -> anyhow::Result<()> {
-		let row = conn
-			.fetch_optional(sqlx::query!(
-				"SELECT uuid, secret FROM websub WHERE flow = ?",
-				flow
-			))
+		let record = sqlx::query!("SELECT uuid, secret FROM websub WHERE flow = ?", flow)
+			.fetch_optional(&mut *conn)
 			.await?;
 
-		let uuid = if let Some(row) = &row {
-			Uuid::from_slice(row.get("uuid"))?
+		let uuid = if let Some(record) = &record {
+			Uuid::from_slice(&record.uuid)?
 		} else {
 			Uuid::new_v7(Timestamp::now(NoContext))
 		};
 
-		let secret: String = if let Some(row) = &row {
-			row.get("secret")
+		let secret = if let Some(record) = &record {
+			&record.secret
 		} else {
-			rand::thread_rng()
+			&rand::thread_rng()
 				.sample_iter(Uniform::new(' ', '~'))
 				.take(64)
 				.map(char::from)
@@ -48,15 +45,16 @@ impl WebSub {
 		]);
 
 		let uuid = uuid.as_bytes().as_slice();
-		if row.is_none() {
-			conn.execute(sqlx::query!(
+		if record.is_none() {
+			sqlx::query!(
 				"INSERT INTO websub (uuid, hub, topic, flow, secret) VALUES (?, ?, ?, ?, ?)",
 				uuid,
 				self.hub,
 				self.this,
 				flow,
 				secret
-			))
+			)
+			.execute(&mut *conn)
 			.await?;
 		}
 
