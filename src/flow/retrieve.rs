@@ -1,4 +1,4 @@
-use std::{cmp::min, sync::Arc};
+use std::{cmp::min, slice, sync::Arc};
 
 use super::node::{Data, DataKind, NodeTrait, IO};
 use crate::flow::feed_arr;
@@ -14,9 +14,9 @@ pub struct Retrieve {
 	#[serde(with = "serde_selector")]
 	content: Selector,
 
-	#[serde(skip, default = "super::feed_arr")]
-	inputs: [Arc<IO>; 1],
-	#[serde(skip, default = "super::feed_io")]
+	#[serde(skip)]
+	input: Arc<IO>,
+	#[serde(skip)]
 	output: Arc<IO>,
 }
 
@@ -24,8 +24,8 @@ impl Retrieve {
 	pub fn new(content: Selector) -> Self {
 		Self {
 			content,
-			inputs: feed_arr(),
-			output: Arc::new(IO::new(DataKind::Feed)),
+			input: Arc::default(),
+			output: Arc::default(),
 		}
 	}
 }
@@ -57,16 +57,24 @@ async fn get_content(
 #[async_trait]
 impl NodeTrait for Retrieve {
 	fn inputs(&self) -> &[Arc<IO>] {
-		&self.inputs
+		slice::from_ref(&self.input)
 	}
 
-	fn outputs(&self) -> &[DataKind] {
+	fn outputs(&self) -> &[Arc<IO>] {
+		slice::from_ref(&self.output)
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		&[DataKind::Feed]
+	}
+
+	fn output_types(&self) -> &[DataKind] {
 		&[DataKind::Feed]
 	}
 
 	#[tracing::instrument(name = "retrieve_node", skip(self))]
 	async fn run(&self) -> anyhow::Result<()> {
-		let Some(Data::Feed(mut atom)) = self.inputs[0].get() else {
+		let Some(Data::Feed(mut atom)) = self.input.get() else {
 			return Err(anyhow!(""));
 		};
 
@@ -82,6 +90,9 @@ impl NodeTrait for Retrieve {
 		self.output.accept(atom)
 	}
 
+	fn set_input(&mut self, _index: usize, input: Arc<IO>) {
+		self.input = input;
+	}
 	fn set_output(&mut self, _index: usize, output: Arc<IO>) {
 		self.output = output;
 	}

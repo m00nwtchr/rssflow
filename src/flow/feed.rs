@@ -1,4 +1,5 @@
 use std::{
+	slice,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -14,12 +15,6 @@ use url::Url;
 use super::node::{Data, DataKind, NodeTrait, IO};
 use crate::websub::WebSub;
 
-#[inline]
-fn inputs() -> [Arc<IO>; 1] {
-	[Arc::new(IO::new(DataKind::WebSub))]
-}
-
-#[inline]
 fn mutex_now() -> Mutex<Instant> {
 	Mutex::new(Instant::now())
 }
@@ -37,9 +32,9 @@ pub struct Feed {
 	#[serde(skip)]
 	web_sub: Mutex<Option<WebSub>>,
 
-	#[serde(skip, default = "inputs")]
-	inputs: [Arc<IO>; 1],
-	#[serde(skip, default = "super::feed_io")]
+	#[serde(skip)]
+	input: Arc<IO>,
+	#[serde(skip)]
 	output: Arc<IO>,
 }
 
@@ -51,8 +46,8 @@ impl Feed {
 			last_fetch: mutex_now(),
 			web_sub: Mutex::default(),
 
-			inputs: inputs(),
-			output: Arc::new(IO::new(DataKind::Feed)),
+			input: Arc::default(),
+			output: Arc::default(),
 		}
 	}
 }
@@ -60,24 +55,32 @@ impl Feed {
 #[async_trait]
 impl NodeTrait for Feed {
 	fn inputs(&self) -> &[Arc<IO>] {
-		&self.inputs
+		slice::from_ref(&self.input)
 	}
 
-	fn outputs(&self) -> &[DataKind] {
+	fn outputs(&self) -> &[Arc<IO>] {
+		slice::from_ref(&self.output)
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		&[DataKind::WebSub]
+	}
+
+	fn output_types(&self) -> &[DataKind] {
 		&[DataKind::Feed]
 	}
 
 	fn is_dirty(&self) -> bool {
 		!self.output.is_some()
-			|| self.inputs[0].is_dirty()
+			|| self.input.is_dirty()
 			|| self.last_fetch.lock().elapsed() > self.ttl
 	}
 
 	#[tracing::instrument(name = "feed_node")]
 	async fn run(&self) -> anyhow::Result<()> {
-		let sub = self.inputs[0].is_dirty();
+		let sub = self.input.is_dirty();
 		let content = if sub {
-			let Some(Data::WebSub(websub)) = self.inputs[0].get() else {
+			let Some(Data::WebSub(websub)) = self.input.get() else {
 				return Err(anyhow!(""));
 			};
 
@@ -111,6 +114,9 @@ impl NodeTrait for Feed {
 		self.output.accept(feed)
 	}
 
+	fn set_input(&mut self, _index: usize, input: Arc<IO>) {
+		self.input = input;
+	}
 	fn set_output(&mut self, _index: usize, output: Arc<IO>) {
 		self.output = output;
 	}

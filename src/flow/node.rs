@@ -23,10 +23,11 @@ use super::wasm::Wasm;
 
 #[async_trait]
 pub trait NodeTrait: Sync + Send {
-	fn inputs(&self) -> &[Arc<IO>] {
-		&[]
-	}
-	fn outputs(&self) -> &[DataKind];
+	fn inputs(&self) -> &[Arc<IO>];
+	fn outputs(&self) -> &[Arc<IO>];
+
+	fn input_types(&self) -> &[DataKind];
+	fn output_types(&self) -> &[DataKind];
 
 	fn is_dirty(&self) -> bool {
 		let inputs = self.inputs();
@@ -36,10 +37,8 @@ pub trait NodeTrait: Sync + Send {
 
 	async fn run(&self) -> anyhow::Result<()>;
 
+	fn set_input(&mut self, index: usize, input: Arc<IO>);
 	fn set_output(&mut self, index: usize, output: Arc<IO>);
-	fn output(&mut self, output: Arc<IO>) {
-		self.set_output(0, output);
-	}
 
 	fn web_sub(&self) -> Option<WebSub> {
 		None
@@ -62,7 +61,7 @@ impl NodeTrait for Node {
 		}
 	}
 
-	fn outputs(&self) -> &[DataKind] {
+	fn outputs(&self) -> &[Arc<IO>] {
 		match self {
 			Self::Feed(n) => n.outputs(),
 			Self::Filter(n) => n.outputs(),
@@ -73,6 +72,34 @@ impl NodeTrait for Node {
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.outputs(),
 			Self::Other(n) => n.outputs(),
+		}
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		match self {
+			Self::Feed(n) => n.input_types(),
+			Self::Filter(n) => n.input_types(),
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.input_types(),
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.input_types(),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.input_types(),
+			Self::Other(n) => n.input_types(),
+		}
+	}
+
+	fn output_types(&self) -> &[DataKind] {
+		match self {
+			Self::Feed(n) => n.output_types(),
+			Self::Filter(n) => n.output_types(),
+			#[cfg(feature = "retrieve")]
+			Self::Retrieve(n) => n.output_types(),
+			#[cfg(feature = "sanitise")]
+			Self::Sanitise(n) => n.output_types(),
+			#[cfg(feature = "wasm")]
+			Self::Wasm(n) => n.output_types(),
+			Self::Other(n) => n.output_types(),
 		}
 	}
 
@@ -104,31 +131,31 @@ impl NodeTrait for Node {
 		}
 	}
 
-	fn set_output(&mut self, i: usize, output: Arc<IO>) {
+	fn set_input(&mut self, index: usize, input: Arc<IO>) {
 		match self {
-			Self::Feed(n) => n.set_output(i, output),
-			Self::Filter(n) => n.set_output(i, output),
+			Self::Feed(n) => n.set_input(index, input),
+			Self::Filter(n) => n.set_input(index, input),
 			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.set_output(i, output),
+			Self::Retrieve(n) => n.set_input(index, input),
 			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.set_output(i, output),
+			Self::Sanitise(n) => n.set_input(index, input),
 			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.set_output(i, output),
-			Self::Other(n) => n.set_output(i, output),
+			Self::Wasm(n) => n.set_input(index, input),
+			Self::Other(n) => n.set_input(index, input),
 		}
 	}
 
-	fn output(&mut self, output: Arc<IO>) {
+	fn set_output(&mut self, index: usize, output: Arc<IO>) {
 		match self {
-			Self::Feed(n) => n.output(output),
-			Self::Filter(n) => n.output(output),
+			Self::Feed(n) => n.set_output(index, output),
+			Self::Filter(n) => n.set_output(index, output),
 			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.output(output),
+			Self::Retrieve(n) => n.set_output(index, output),
 			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.output(output),
+			Self::Sanitise(n) => n.set_output(index, output),
 			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.output(output),
-			Self::Other(n) => n.output(output),
+			Self::Wasm(n) => n.set_output(index, output),
+			Self::Other(n) => n.set_output(index, output),
 		}
 	}
 
@@ -247,6 +274,15 @@ impl IO {
 
 	pub fn clear(&self) {
 		self.inner.write().dirty = false;
+	}
+}
+
+impl Default for IO {
+	fn default() -> Self {
+		Self {
+			inner: Arc::default(),
+			kind: DataKind::Any,
+		}
 	}
 }
 

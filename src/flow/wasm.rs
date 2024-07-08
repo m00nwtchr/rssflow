@@ -19,7 +19,8 @@ pub struct Wasm {
 	inputs: Vec<Arc<IO>>,
 	outputs: Vec<Arc<IO>>,
 
-	output_types: Vec<DataKind>,
+	input_types: Box<[DataKind]>,
+	output_types: Box<[DataKind]>,
 }
 
 impl Wasm {
@@ -61,9 +62,11 @@ impl Wasm {
 			stdin,
 			stdout,
 
-			inputs: inputs.iter().map(|d| Arc::new(IO::new(*d))).collect(),
+			inputs: Vec::new(),
 			outputs: Vec::new(),
-			output_types: outputs.to_vec(),
+
+			input_types: inputs.into(),
+			output_types: outputs.into(),
 		})
 	}
 }
@@ -71,11 +74,19 @@ impl Wasm {
 #[async_trait]
 impl NodeTrait for Wasm {
 	fn inputs(&self) -> &[Arc<IO>] {
-		self.inputs.as_slice()
+		&self.inputs
 	}
 
-	fn outputs(&self) -> &[DataKind] {
-		self.output_types.as_slice()
+	fn outputs(&self) -> &[Arc<IO>] {
+		&self.outputs
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		&self.input_types
+	}
+
+	fn output_types(&self) -> &[DataKind] {
+		&self.output_types
 	}
 
 	#[tracing::instrument(name = "wasm_node", skip(self))]
@@ -107,11 +118,11 @@ impl NodeTrait for Wasm {
 		Ok(())
 	}
 
+	fn set_input(&mut self, index: usize, input: Arc<IO>) {
+		self.inputs.insert(index, input);
+	}
 	fn set_output(&mut self, index: usize, output: Arc<IO>) {
 		self.outputs.insert(index, output);
-	}
-	fn output(&mut self, output: Arc<IO>) {
-		self.outputs.push(output);
 	}
 }
 

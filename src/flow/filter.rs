@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{slice, sync::Arc};
 
 use super::node::{Data, DataKind, Field, NodeTrait, IO};
 use crate::flow::feed_arr;
@@ -15,10 +15,9 @@ pub struct Filter {
 	filter: Kind,
 	invert: bool,
 
-	#[serde(skip, default = "super::feed_arr")]
-	inputs: [Arc<IO>; 1],
-
-	#[serde(skip, default = "super::feed_io")]
+	#[serde(skip)]
+	input: Arc<IO>,
+	#[serde(skip)]
 	output: Arc<IO>,
 }
 
@@ -29,8 +28,8 @@ impl Filter {
 			filter,
 			invert,
 
-			output: Arc::new(IO::new(DataKind::Feed)),
-			inputs: feed_arr(),
+			output: Arc::default(),
+			input: Arc::default(),
 		}
 	}
 }
@@ -38,15 +37,23 @@ impl Filter {
 #[async_trait]
 impl NodeTrait for Filter {
 	fn inputs(&self) -> &[Arc<IO>] {
-		&self.inputs
+		slice::from_ref(&self.input)
 	}
 
-	fn outputs(&self) -> &[DataKind] {
+	fn outputs(&self) -> &[Arc<IO>] {
+		slice::from_ref(&self.input)
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		&[DataKind::Feed]
+	}
+
+	fn output_types(&self) -> &[DataKind] {
 		&[DataKind::Feed]
 	}
 
 	async fn run(&self) -> anyhow::Result<()> {
-		let Some(Data::Feed(mut atom)) = self.inputs[0].get() else {
+		let Some(Data::Feed(mut atom)) = self.input.get() else {
 			return Err(anyhow!(""));
 		};
 
@@ -78,6 +85,9 @@ impl NodeTrait for Filter {
 		self.output.accept(atom)
 	}
 
+	fn set_input(&mut self, _index: usize, input: Arc<IO>) {
+		self.input = input;
+	}
 	fn set_output(&mut self, _index: usize, output: Arc<IO>) {
 		self.output = output;
 	}

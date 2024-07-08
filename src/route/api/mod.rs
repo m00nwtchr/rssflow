@@ -8,14 +8,13 @@ use axum::{
 	Json, Router,
 };
 use serde::Serialize;
-use sqlx::{pool::PoolConnection, Acquire, Sqlite, SqliteConnection, SqlitePool};
+use sqlx::{Acquire, SqliteConnection, SqlitePool};
 use url::Url;
-use uuid::Uuid;
 
 use super::internal_error;
 use crate::{
 	app::AppState,
-	flow::{node::NodeTrait, Flow, FlowBuilder},
+	flow::{node::NodeTrait, FlowBuilder},
 	websub::WebSub,
 };
 

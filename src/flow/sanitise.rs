@@ -1,11 +1,11 @@
-use std::{sync::Arc, thread::available_parallelism};
+use std::{slice, sync::Arc, thread::available_parallelism};
 
-use super::node::{Data, DataKind, Field, NodeTrait, IO};
-use crate::flow::feed_arr;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
+
+use super::node::{Data, DataKind, Field, NodeTrait, IO};
 
 #[inline]
 pub fn default_ammonia() -> ammonia::Builder<'static> {
@@ -21,9 +21,9 @@ pub struct Sanitise {
 	#[serde(skip, default = "default_ammonia")]
 	ammonia: ammonia::Builder<'static>,
 
-	#[serde(skip, default = "super::feed_arr")]
-	inputs: [Arc<IO>; 1],
-	#[serde(skip, default = "super::feed_io")]
+	#[serde(skip)]
+	input: Arc<IO>,
+	#[serde(skip)]
 	output: Arc<IO>,
 }
 
@@ -32,8 +32,8 @@ impl Sanitise {
 		Self {
 			field,
 			ammonia: default_ammonia(),
-			inputs: feed_arr(),
-			output: Arc::new(IO::new(DataKind::Feed)),
+			input: Arc::default(),
+			output: Arc::default(),
 		}
 	}
 }
@@ -41,16 +41,24 @@ impl Sanitise {
 #[async_trait]
 impl NodeTrait for Sanitise {
 	fn inputs(&self) -> &[Arc<IO>] {
-		&self.inputs
+		slice::from_ref(&self.input)
 	}
 
-	fn outputs(&self) -> &[DataKind] {
+	fn outputs(&self) -> &[Arc<IO>] {
+		slice::from_ref(&self.output)
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		&[DataKind::Feed]
+	}
+
+	fn output_types(&self) -> &[DataKind] {
 		&[DataKind::Feed]
 	}
 
 	#[tracing::instrument(name = "sanitise_node", skip(self))]
 	async fn run(&self) -> anyhow::Result<()> {
-		let Some(Data::Feed(mut atom)) = self.inputs[0].get() else {
+		let Some(Data::Feed(mut atom)) = self.input.get() else {
 			return Err(anyhow!(""));
 		};
 
@@ -89,6 +97,9 @@ impl NodeTrait for Sanitise {
 		self.output.accept(atom)
 	}
 
+	fn set_input(&mut self, _index: usize, input: Arc<IO>) {
+		self.input = input;
+	}
 	fn set_output(&mut self, _index: usize, output: Arc<IO>) {
 		self.output = output;
 	}

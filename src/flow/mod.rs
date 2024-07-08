@@ -44,10 +44,18 @@ impl Flow {
 #[async_trait]
 impl NodeTrait for Flow {
 	fn inputs(&self) -> &[Arc<IO>] {
-		self.inputs.as_ref()
+		&self.inputs
 	}
 
-	fn outputs(&self) -> &[DataKind] {
+	fn outputs(&self) -> &[Arc<IO>] {
+		&self.outputs
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		&[]
+	}
+
+	fn output_types(&self) -> &[DataKind] {
 		&[]
 	}
 
@@ -72,6 +80,9 @@ impl NodeTrait for Flow {
 		Ok(())
 	}
 
+	fn set_input(&mut self, _index: usize, _input: Arc<IO>) {
+		unimplemented!()
+	}
 	fn set_output(&mut self, _index: usize, _output: Arc<IO>) {
 		unimplemented!()
 	}
@@ -97,46 +108,54 @@ impl FlowBuilder {
 	}
 
 	pub fn simple(mut self) -> Flow {
-		let inputs = self
+		let inputs: Box<[_]> = self
 			.nodes
 			.first()
 			.iter()
-			.flat_map(|n| n.inputs())
-			.cloned()
-			.collect();
-		let outputs: Box<[Arc<IO>]> = self
-			.nodes
-			.last()
-			.iter()
-			.flat_map(|n| n.outputs())
+			.flat_map(|n| n.input_types())
 			.map(|d| Arc::new(IO::new(*d)))
 			.collect();
 
-		if !self.nodes.is_empty() {
-			let mut io = None;
-			let mut flag = true;
+		let mut outputs: Vec<Arc<IO>> = Vec::new();
 
-			for node in self.nodes.iter_mut().rev() {
-				if let Some(ioi) = io {
-					node.set_output(0, ioi);
-					io = None;
-				} else if flag {
-					flag = false;
-					for (j, output) in outputs.iter().enumerate() {
-						node.set_output(j, output.clone());
+		//
+		// let outputs: Box<[Arc<IO>]> = self
+		// 	.nodes
+		// 	.last()
+		// 	.iter()
+		// 	.flat_map(|n| n.output_types())
+		// 	.map(|d| Arc::new(IO::new(*d)))
+		// 	.collect();
+
+		if !self.nodes.is_empty() {
+			for (i, node) in self.nodes.iter_mut().enumerate() {
+				if i == 0 {
+					for (j, arc) in inputs.iter().enumerate() {
+						node.set_input(j, arc.clone());
+					}
+				} else {
+					for (j, arc) in outputs.iter().enumerate() {
+						node.set_input(j, arc.clone());
 					}
 				}
 
-				if let Some(input) = node.inputs().first() {
-					io.replace(input.clone());
+				let o: Vec<_> = node
+					.output_types()
+					.iter()
+					.map(|d| Arc::new(IO::new(*d)))
+					.collect();
+
+				for (j, arc) in o.iter().enumerate() {
+					node.set_output(j, arc.clone());
 				}
+				outputs = o;
 			}
 		}
 
 		Flow {
 			nodes: Mutex::new(self.nodes),
 			inputs,
-			outputs,
+			outputs: outputs.into(),
 			web_sub: parking_lot::Mutex::default(),
 		}
 	}
