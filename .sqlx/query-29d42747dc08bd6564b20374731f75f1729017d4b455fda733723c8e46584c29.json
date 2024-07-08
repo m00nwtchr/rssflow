@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\tSELECT topic, hub\n\t\tFROM websub\n\t\tWHERE NOT EXISTS (\n\t\t\tSELECT 1\n\t\t\tFROM websub_flows\n\t\t\tWHERE websub_flows.topic = websub.topic\n\t\t)\n\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "topic",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "hub",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "29d42747dc08bd6564b20374731f75f1729017d4b455fda733723c8e46584c29"
+}
