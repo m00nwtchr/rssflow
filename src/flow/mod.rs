@@ -1,6 +1,11 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{
+	collections::HashMap,
+	fmt::{Display, Formatter},
+	sync::Arc,
+};
 use tokio::sync::Mutex;
 
 pub mod feed;
@@ -92,23 +97,45 @@ impl NodeTrait for Flow {
 	}
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Copy)]
+pub struct Port(usize, usize);
+
+impl Display for Port {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		f.write_fmt(format_args!("N{}P{}", self.0, self.1))
+	}
+}
+
+#[derive(Serialize, Deserialize, Eq, PartialEq)]
+pub struct Connection(Port, Port);
+
+#[derive(Serialize, Deserialize, Default)]
 pub struct FlowBuilder {
 	nodes: Vec<Node>,
+	#[serde(default)]
+	connections: Vec<Connection>,
 }
 
 impl FlowBuilder {
-	pub fn new() -> Self {
-		Self { nodes: Vec::new() }
-	}
-
 	pub fn node(mut self, node: impl Into<Node>) -> Self {
 		self.nodes.push(node.into());
 		self
 	}
 
-	pub fn simple(mut self) -> Flow {
-		let inputs: Box<[_]> = self
+	pub fn simple(mut self) -> Self {
+		self.connections.clear();
+		for i in 0..self.nodes.len() {
+			if i > 0 {
+				self.connections
+					.push(Connection(Port(i - 1, 0), Port(i, 0)));
+			}
+		}
+
+		self
+	}
+
+	pub fn build(mut self) -> Flow {
+		let inputs: Box<[Arc<IO>]> = self
 			.nodes
 			.first()
 			.iter()
@@ -116,54 +143,54 @@ impl FlowBuilder {
 			.map(|d| Arc::new(IO::new(*d)))
 			.collect();
 
-		let mut outputs: Vec<Arc<IO>> = Vec::new();
-
-		//
-		// let outputs: Box<[Arc<IO>]> = self
-		// 	.nodes
-		// 	.last()
-		// 	.iter()
-		// 	.flat_map(|n| n.output_types())
-		// 	.map(|d| Arc::new(IO::new(*d)))
-		// 	.collect();
+		let outputs: Box<[Arc<IO>]> = self
+			.nodes
+			.last()
+			.iter()
+			.flat_map(|n| n.output_types())
+			.map(|d| Arc::new(IO::new(*d)))
+			.collect();
 
 		if !self.nodes.is_empty() {
-			for (i, node) in self.nodes.iter_mut().enumerate() {
-				if i == 0 {
-					for (j, arc) in inputs.iter().enumerate() {
-						node.set_input(j, arc.clone());
-					}
-				} else {
-					for (j, arc) in outputs.iter().enumerate() {
-						node.set_input(j, arc.clone());
+			if let Some(first) = self.nodes.first_mut() {
+				for (i, input) in inputs.iter().enumerate() {
+					first.set_input(i, input.clone());
+				}
+			}
+			if let Some(last) = self.nodes.last_mut() {
+				for (i, output) in outputs.iter().enumerate() {
+					last.set_output(i, output.clone());
+				}
+			}
+
+			if self.connections.is_empty() {
+				self = self.simple();
+			}
+			let mut port_map = HashMap::new();
+			for Connection(from, to) in self.connections {
+				if let Some(from_n) = self.nodes.get_mut(from.0) {
+					if let Some(kind) = from_n.output_types().get(from.1).copied() {
+						// NOTE: If multiple outputs are connected to the same input, this will only correctly assign the last one.
+						let io = port_map.entry(from).or_insert_with(|| {
+							let io = Arc::new(IO::new(kind));
+							from_n.set_output(from.1, io.clone());
+							io
+						});
+
+						if let Some(to_n) = self.nodes.get_mut(to.0) {
+							to_n.connect(io.clone(), to.1);
+						}
 					}
 				}
-
-				let o: Vec<_> = node
-					.output_types()
-					.iter()
-					.map(|d| Arc::new(IO::new(*d)))
-					.collect();
-
-				for (j, arc) in o.iter().enumerate() {
-					node.set_output(j, arc.clone());
-				}
-				outputs = o;
 			}
 		}
 
 		Flow {
 			nodes: Mutex::new(self.nodes),
 			inputs,
-			outputs: outputs.into(),
+			outputs,
 			web_sub: parking_lot::Mutex::default(),
 		}
-	}
-}
-
-impl From<Vec<Node>> for FlowBuilder {
-	fn from(nodes: Vec<Node>) -> Self {
-		FlowBuilder { nodes }
 	}
 }
 
@@ -182,7 +209,7 @@ mod test {
 
 	#[tokio::test]
 	pub async fn test() -> anyhow::Result<()> {
-		let builder = FlowBuilder::new()
+		let builder = FlowBuilder::default()
 			.node(Feed::new(
 				"https://www.azaleaellis.com/tag/pgts/feed/atom".parse()?,
 				Duration::from_secs(60 * 60),
@@ -193,7 +220,8 @@ mod test {
 				true,
 			))
 			.node(Retrieve::new(Selector::parse(".entry-content").unwrap()))
-			.node(Sanitise::new(Field::Content));
+			.node(Sanitise::new(Field::Content))
+			.simple();
 
 		println!("{}", serde_json::to_string_pretty(&builder)?);
 

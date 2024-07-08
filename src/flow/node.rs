@@ -40,6 +40,14 @@ pub trait NodeTrait: Sync + Send {
 	fn set_input(&mut self, index: usize, input: Arc<IO>);
 	fn set_output(&mut self, index: usize, output: Arc<IO>);
 
+	fn connect(&mut self, io: Arc<IO>, port: usize) {
+		if let Some(kind) = self.input_types().get(port) {
+			if io.kind.eq(kind) || DataKind::Any.eq(kind) {
+				self.set_input(port, io);
+			}
+		}
+	}
+
 	fn web_sub(&self) -> Option<WebSub> {
 		None
 	}

@@ -49,7 +49,7 @@ impl FromRef<AppState> for Arc<AppConfig> {
 fn load_flow(content: &str) -> anyhow::Result<Flow> {
 	let flow: FlowBuilder = serde_json::de::from_str(content)?;
 
-	Ok(flow.simple())
+	Ok(flow.build())
 }
 
 pub async fn app(config: AppConfig) -> anyhow::Result<Router> {

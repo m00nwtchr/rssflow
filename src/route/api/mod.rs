@@ -56,7 +56,7 @@ async fn update_flow(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let json = serde_json::to_string(&flow).map_err(internal_error)?;
 
-	let flow = flow.simple();
+	let flow = flow.build();
 	flow.run()
 		.await
 		.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
