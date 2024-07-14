@@ -11,6 +11,8 @@ use tokio::sync::Mutex;
 pub mod feed;
 #[cfg(feature = "filter")]
 pub mod filter;
+#[cfg(feature = "html")]
+pub mod html;
 pub mod node;
 #[cfg(feature = "retrieve")]
 pub mod retrieve;
@@ -65,6 +67,8 @@ impl NodeTrait for Flow {
 	}
 
 	async fn run(&self) -> anyhow::Result<()> {
+		// TODO: Run nodes in order based on input/output dependencies, run adjacent nodes concurrently.
+
 		let nodes = self.nodes.lock().await;
 		for node in nodes.iter() {
 			if node.is_dirty() {
@@ -135,6 +139,8 @@ impl FlowBuilder {
 	}
 
 	pub fn build(mut self) -> Flow {
+		// TODO: Improve this code once multiple-input nodes actually exist.
+		// TODO: Collect all unconnected inputs/outputs into flow inputs/outputs
 		let inputs: Box<[Arc<IO>]> = self
 			.nodes
 			.first()

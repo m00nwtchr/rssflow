@@ -14,6 +14,8 @@ use crate::websub::WebSub;
 
 #[cfg(feature = "filter")]
 use super::filter::Filter;
+#[cfg(feature = "html")]
+use super::html::Html;
 #[cfg(feature = "retrieve")]
 use super::retrieve::Retrieve;
 #[cfg(feature = "sanitise")]
@@ -59,6 +61,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.inputs(),
 			Self::Filter(n) => n.inputs(),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.inputs(),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.inputs(),
 			#[cfg(feature = "sanitise")]
@@ -73,6 +77,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.outputs(),
 			Self::Filter(n) => n.outputs(),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.outputs(),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.outputs(),
 			#[cfg(feature = "sanitise")]
@@ -87,6 +93,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.input_types(),
 			Self::Filter(n) => n.input_types(),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.input_types(),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.input_types(),
 			#[cfg(feature = "sanitise")]
@@ -101,6 +109,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.output_types(),
 			Self::Filter(n) => n.output_types(),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.output_types(),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.output_types(),
 			#[cfg(feature = "sanitise")]
@@ -115,6 +125,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.is_dirty(),
 			Self::Filter(n) => n.is_dirty(),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.is_dirty(),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.is_dirty(),
 			#[cfg(feature = "sanitise")]
@@ -129,6 +141,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.run().await,
 			Self::Filter(n) => n.run().await,
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.run().await,
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.run().await,
 			#[cfg(feature = "sanitise")]
@@ -143,6 +157,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.set_input(index, input),
 			Self::Filter(n) => n.set_input(index, input),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.set_input(index, input),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.set_input(index, input),
 			#[cfg(feature = "sanitise")]
@@ -157,6 +173,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.set_output(index, output),
 			Self::Filter(n) => n.set_output(index, output),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.set_output(index, output),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.set_output(index, output),
 			#[cfg(feature = "sanitise")]
@@ -171,6 +189,8 @@ impl NodeTrait for Node {
 		match self {
 			Self::Feed(n) => n.web_sub(),
 			Self::Filter(n) => n.web_sub(),
+			#[cfg(feature = "html")]
+			Self::Html(n) => n.web_sub(),
 			#[cfg(feature = "retrieve")]
 			Self::Retrieve(n) => n.web_sub(),
 			#[cfg(feature = "sanitise")]
@@ -188,6 +208,8 @@ pub enum Node {
 	Feed(Feed),
 	#[cfg(feature = "filter")]
 	Filter(Filter),
+	#[cfg(feature = "html")]
+	Html(Html),
 	#[cfg(feature = "retrieve")]
 	Retrieve(Retrieve),
 	#[cfg(feature = "sanitise")]
