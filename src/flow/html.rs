@@ -20,6 +20,7 @@ fn mutex_now() -> Mutex<Instant> {
 	Mutex::new(Instant::now())
 }
 
+/// HTTP GET an HTML page, and subscribe via WebSub if available.
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Html {

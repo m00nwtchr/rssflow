@@ -1,7 +1,5 @@
 use std::{cmp::min, slice, sync::Arc};
 
-use super::node::{Data, DataKind, NodeTrait, IO};
-use crate::flow::feed_arr;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use atom_syndication::ContentBuilder;
@@ -9,6 +7,9 @@ use futures::stream::{self, StreamExt};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
+use super::node::{Data, DataKind, NodeTrait, IO};
+
+/// Retrieves the full content of stub/summary entries.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Retrieve {
 	#[serde(with = "serde_selector")]

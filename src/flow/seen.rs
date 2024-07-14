@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::node::{Data, DataKind, NodeTrait, IO};
 
+/// Filters out already processed entries.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Seen {
 	#[serde(default)]

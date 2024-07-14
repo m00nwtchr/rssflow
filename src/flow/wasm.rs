@@ -9,6 +9,7 @@ use wasmtime_wasi::{preview1, preview1::WasiP1Ctx, WasiCtxBuilder};
 use super::node::{collect_inputs, Data, DataKind, NodeTrait, IO};
 use pipe::{MyInputPipe, MyOutputPipe};
 
+/// Run a WASI module as a [Node]
 pub struct Wasm {
 	store: Mutex<Store<WasiP1Ctx>>,
 	func: TypedFunc<(), ()>,

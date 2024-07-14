@@ -14,6 +14,7 @@ pub fn default_ammonia() -> ammonia::Builder<'static> {
 	ammonia
 }
 
+/// Removes unnecessary elements/attributes from entry html.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sanitise {
 	field: Field,

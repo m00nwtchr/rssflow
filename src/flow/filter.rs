@@ -1,13 +1,14 @@
 use std::{slice, sync::Arc};
 
-use super::node::{Data, DataKind, Field, NodeTrait, IO};
-use crate::flow::feed_arr;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_regex;
 
+use super::node::{Data, DataKind, Field, NodeTrait, IO};
+
+/// Filter out specific entries
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Filter {
 	field: Field,
