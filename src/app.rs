@@ -11,22 +11,22 @@ use tokio::sync::{broadcast, Mutex};
 
 use crate::{
 	config::AppConfig,
-	flow::{Flow, FlowBuilder},
+	flow::{node::Data, Flow, FlowBuilder},
 	route,
 };
 
 #[derive(Clone)]
-pub struct FlowHandle(Arc<Flow>, broadcast::Sender<Feed>);
+pub struct FlowHandle(Arc<Flow>, broadcast::Sender<Data>);
 impl FlowHandle {
 	pub fn new(arc: Arc<Flow>) -> Self {
 		FlowHandle(arc, broadcast::channel(100).0)
 	}
 
-	pub fn tx(&self) -> &broadcast::Sender<Feed> {
+	pub fn tx(&self) -> &broadcast::Sender<Data> {
 		&self.1
 	}
 
-	pub fn subscribe(&self) -> broadcast::Receiver<Feed> {
+	pub fn subscribe(&self) -> broadcast::Receiver<Data> {
 		self.1.subscribe()
 	}
 }

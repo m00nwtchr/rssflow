@@ -1,6 +1,8 @@
 #![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
+use super::feed::Feed;
+use crate::{flow::seen::Seen, websub::WebSub};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -8,9 +10,6 @@ use derive_more::From;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
-
-use super::feed::Feed;
-use crate::websub::WebSub;
 
 #[cfg(feature = "filter")]
 use super::filter::Filter;
@@ -67,6 +66,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.inputs(),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.inputs(),
+			Self::Seen(n) => n.inputs(),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.inputs(),
 			Self::Other(n) => n.inputs(),
@@ -83,6 +83,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.outputs(),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.outputs(),
+			Self::Seen(n) => n.outputs(),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.outputs(),
 			Self::Other(n) => n.outputs(),
@@ -99,6 +100,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.input_types(),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.input_types(),
+			Self::Seen(n) => n.input_types(),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.input_types(),
 			Self::Other(n) => n.input_types(),
@@ -115,6 +117,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.output_types(),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.output_types(),
+			Self::Seen(n) => n.output_types(),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.output_types(),
 			Self::Other(n) => n.output_types(),
@@ -131,6 +134,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.is_dirty(),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.is_dirty(),
+			Self::Seen(n) => n.is_dirty(),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.is_dirty(),
 			Self::Other(n) => n.is_dirty(),
@@ -147,6 +151,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.run().await,
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.run().await,
+			Self::Seen(n) => n.run().await,
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.run().await,
 			Self::Other(n) => n.run().await,
@@ -163,6 +168,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.set_input(index, input),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.set_input(index, input),
+			Self::Seen(n) => n.set_input(index, input),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.set_input(index, input),
 			Self::Other(n) => n.set_input(index, input),
@@ -179,6 +185,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.set_output(index, output),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.set_output(index, output),
+			Self::Seen(n) => n.set_output(index, output),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.set_output(index, output),
 			Self::Other(n) => n.set_output(index, output),
@@ -195,6 +202,7 @@ impl NodeTrait for Node {
 			Self::Retrieve(n) => n.web_sub(),
 			#[cfg(feature = "sanitise")]
 			Self::Sanitise(n) => n.web_sub(),
+			Self::Seen(n) => n.web_sub(),
 			#[cfg(feature = "wasm")]
 			Self::Wasm(n) => n.web_sub(),
 			Self::Other(n) => n.web_sub(),
@@ -214,6 +222,7 @@ pub enum Node {
 	Retrieve(Retrieve),
 	#[cfg(feature = "sanitise")]
 	Sanitise(Sanitise),
+	Seen(Seen),
 	#[cfg(feature = "wasm")]
 	#[serde(skip)]
 	Wasm(Wasm),

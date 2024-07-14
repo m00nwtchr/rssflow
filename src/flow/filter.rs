@@ -52,12 +52,12 @@ impl NodeTrait for Filter {
 		&[DataKind::Feed]
 	}
 
+	#[tracing::instrument(name = "filter_node")]
 	async fn run(&self) -> anyhow::Result<()> {
 		let Some(Data::Feed(mut atom)) = self.input.get() else {
 			return Err(anyhow!(""));
 		};
 
-		let _span = tracing::info_span!("filter_node").entered();
 		atom.entries.retain(|item| {
 			let cmp = match self.field {
 				Field::Author => item.authors().first().map(|p| &p.name),

@@ -80,8 +80,17 @@ pub async fn receive(
 
 					tokio::spawn(async move {
 						if let Ok(_) = flow.run().await {
-							if let Some(Data::Feed(feed)) = flow.result() {
-								let _ = flow.tx().send(feed);
+							if let Some(data) = flow.result() {
+								match data {
+									Data::Feed(feed) => {
+										for entry in feed.entries.into_iter().rev() {
+											let _ = flow.tx().send(Data::Entry(entry));
+										}
+									}
+									_ => {
+										let _ = flow.tx().send(data);
+									}
+								}
 							}
 						}
 					});

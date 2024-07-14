@@ -2,6 +2,8 @@
 #![allow(clippy::module_name_repetitions)]
 use std::net::SocketAddr;
 
+use tokio::net::TcpListener;
+
 mod app;
 mod config;
 mod feed;
@@ -20,10 +22,8 @@ async fn main() -> anyhow::Result<()> {
 
 	let config = AppConfig::load()?;
 
-	let listener = tokio::net::TcpListener::bind(SocketAddr::new(config.address, config.port))
-		.await
-		.unwrap();
-	axum::serve(listener, app(config).await?).await.unwrap();
+	let listener = TcpListener::bind(SocketAddr::new(config.address, config.port)).await?;
+	axum::serve(listener, app(config).await?).await?;
 
 	Ok(())
 }

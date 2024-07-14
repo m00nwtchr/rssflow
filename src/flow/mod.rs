@@ -18,6 +18,7 @@ pub mod node;
 pub mod retrieve;
 #[cfg(feature = "sanitise")]
 pub mod sanitise;
+pub mod seen;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
