@@ -1,12 +1,13 @@
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
+use atom_syndication::Feed;
 use axum::{extract::FromRef, routing::get, Router};
 use futures::StreamExt;
 use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 	SqlitePool,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 
 use crate::{
 	config::AppConfig,
@@ -14,9 +15,33 @@ use crate::{
 	route,
 };
 
+#[derive(Clone)]
+pub struct FlowHandle(Arc<Flow>, broadcast::Sender<Feed>);
+impl FlowHandle {
+	pub fn new(arc: Arc<Flow>) -> Self {
+		FlowHandle(arc, broadcast::channel(100).0)
+	}
+
+	pub fn tx(&self) -> &broadcast::Sender<Feed> {
+		&self.1
+	}
+
+	pub fn subscribe(&self) -> broadcast::Receiver<Feed> {
+		self.1.subscribe()
+	}
+}
+
+impl Deref for FlowHandle {
+	type Target = Arc<Flow>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
 #[allow(clippy::module_name_repetitions)]
 pub struct AppStateInner {
-	pub flows: Mutex<HashMap<String, Arc<Flow>>>,
+	pub flows: Mutex<HashMap<String, FlowHandle>>,
 	pub pool: SqlitePool,
 	pub config: Arc<AppConfig>,
 }
@@ -77,6 +102,7 @@ pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
 				None
 			}
 		})
+		.map(|(k, v)| (k, FlowHandle::new(v)))
 		.collect()
 		.await;
 

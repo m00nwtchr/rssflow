@@ -1,19 +1,26 @@
-use axum::{
-	extract::{Path, State},
-	http::StatusCode,
-	response::IntoResponse,
-	routing::get,
-	Router,
-};
-
 use crate::{
 	app::AppState,
 	flow::node::{Data, NodeTrait},
 	route::Atom,
 };
+use anyhow::anyhow;
+use atom_syndication::Feed;
+use axum::{
+	extract::{Path, State},
+	http::StatusCode,
+	response::{
+		sse::{Event, KeepAlive},
+		IntoResponse, Sse,
+	},
+	routing::get,
+	Router,
+};
+use futures::{stream, Stream};
+use std::convert::Infallible;
+use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 
 #[tracing::instrument(name = "run_flow_handler", skip(state))]
-pub async fn run(
+async fn run(
 	Path(name): Path<String>,
 	State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
@@ -32,6 +39,31 @@ pub async fn run(
 	}
 }
 
+async fn subscribe(
+	Path(name): Path<String>,
+	State(state): State<AppState>,
+) -> Result<Sse<impl Stream<Item = anyhow::Result<Event>>>, StatusCode> {
+	let Some((flow, rx)) = state
+		.flows
+		.lock()
+		.await
+		.get(&name)
+		.map(|h| ((*h).clone(), h.subscribe()))
+	else {
+		return Err(StatusCode::NOT_FOUND);
+	};
+
+	let stream = BroadcastStream::new(rx).map(|res| {
+		let feed = res?;
+
+		Ok(Event::default().json_data(&feed)?)
+	});
+
+	Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+}
+
 pub fn router() -> Router<AppState> {
-	Router::new().route("/:name", get(run))
+	Router::new()
+		.route("/:name", get(run))
+		.route("/:name/sse", get(subscribe))
 }

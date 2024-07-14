@@ -13,7 +13,7 @@ use url::Url;
 
 use super::internal_error;
 use crate::{
-	app::AppState,
+	app::{AppState, FlowHandle},
 	flow::{node::NodeTrait, FlowBuilder},
 	websub::WebSub,
 };
@@ -124,7 +124,7 @@ async fn update_flow(
 		.flows
 		.lock()
 		.await
-		.insert(name.clone(), Arc::new(flow));
+		.insert(name.clone(), FlowHandle::new(Arc::new(flow)));
 
 	out
 }

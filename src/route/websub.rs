@@ -19,7 +19,7 @@ use uuid::Uuid;
 use super::internal_error;
 use crate::{
 	app::AppState,
-	flow::node::{DataKind, NodeTrait},
+	flow::node::{Data, DataKind, NodeTrait},
 };
 
 #[allow(clippy::declare_interior_mutable_const)]
@@ -78,7 +78,13 @@ pub async fn receive(
 				{
 					let _ = input.accept(body.clone());
 
-					tokio::spawn(async move { flow.run().await });
+					tokio::spawn(async move {
+						if let Ok(_) = flow.run().await {
+							if let Some(Data::Feed(feed)) = flow.result() {
+								let _ = flow.tx().send(feed);
+							}
+						}
+					});
 				}
 			}
 		}

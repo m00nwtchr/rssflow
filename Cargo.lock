@@ -2421,6 +2421,7 @@ dependencies = [
  "sqlx",
  "strum",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -3282,6 +3283,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
