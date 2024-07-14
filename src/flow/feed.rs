@@ -1,5 +1,6 @@
 use std::{
 	slice,
+	str::FromStr,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -7,7 +8,7 @@ use std::{
 use anyhow::anyhow;
 use async_trait::async_trait;
 use parking_lot::Mutex;
-use reqwest::header;
+use reqwest::{header, header::LINK};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use url::Url;
@@ -79,8 +80,9 @@ impl NodeTrait for Feed {
 
 	#[tracing::instrument(name = "feed_node")]
 	async fn run(&self) -> anyhow::Result<()> {
-		let sub = self.input.is_dirty();
-		let content = if sub {
+		let mut ws = self.input.is_dirty();
+
+		let content = if ws {
 			let Some(Data::WebSub(websub)) = self.input.get() else {
 				return Err(anyhow!(""));
 			};
@@ -95,11 +97,21 @@ impl NodeTrait for Feed {
 				}
 			}
 
+			if let Some(websub) = response
+				.headers()
+				.get(LINK)
+				.and_then(|v| v.to_str().ok())
+				.and_then(|v| WebSub::from_str(v).ok())
+			{
+				self.web_sub.lock().replace(websub);
+				ws = true;
+			}
+
 			response.bytes().await?
 		};
 		let feed = atom_syndication::Feed::read_from(&content[..])?;
 
-		if !sub {
+		if !ws {
 			let hub = feed.links.iter().find(|l| l.rel.eq("hub"));
 			let this = feed.links.iter().find(|l| l.rel.eq("self"));
 
