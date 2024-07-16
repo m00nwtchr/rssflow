@@ -14,9 +14,11 @@ FROM scratch
 
 WORKDIR /app
 
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/rss-pipe ./
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/rssflow ./
 
-EXPOSE 3434:3434/tcp
+EXPOSE 80:80/tcp
 VOLUME /data
 
-CMD ["/app/rss-pipe"]
+ENV PORT=80
+ENV DATABASE_FILE=/data/rssflow.db
+CMD ["/app/rssflow"]

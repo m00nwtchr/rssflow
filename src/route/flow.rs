@@ -17,7 +17,6 @@ use crate::{
 	route::Atom,
 };
 
-#[tracing::instrument(name = "run_flow_handler", skip(state))]
 async fn run(
 	Path(name): Path<String>,
 	State(state): State<AppState>,

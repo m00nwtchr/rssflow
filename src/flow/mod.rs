@@ -1,11 +1,11 @@
-use anyhow::anyhow;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::{
 	collections::HashMap,
 	fmt::{Display, Formatter},
 	sync::Arc,
 };
+
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 pub mod feed;
@@ -117,7 +117,7 @@ pub struct Connection(Port, Port);
 #[derive(Serialize, Deserialize, Default)]
 pub struct FlowBuilder {
 	nodes: Vec<Node>,
-	#[serde(default)]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	connections: Vec<Connection>,
 }
 
@@ -209,6 +209,7 @@ mod test {
 		filter::{Filter, Kind},
 		retrieve::Retrieve,
 		sanitise::Sanitise,
+		seen::Seen,
 		FlowBuilder,
 	};
 	use scraper::Selector;
@@ -221,6 +222,7 @@ mod test {
 				"https://www.azaleaellis.com/tag/pgts/feed/atom".parse()?,
 				Duration::from_secs(60 * 60),
 			))
+			.node(Seen::new())
 			.node(Filter::new(
 				Field::Summary,
 				Kind::Contains("BELOW IS A SNEAK PEEK OF THIS CONTENT!".parse()?),
@@ -230,7 +232,7 @@ mod test {
 			.node(Sanitise::new(Field::Content))
 			.simple();
 
-		println!("{}", serde_json::to_string_pretty(&builder)?);
+		println!("{}", serde_json::to_string(&builder)?);
 
 		// let flow = builder.simple(DataKind::Feed);
 		// let Some(Data::Feed(atom)) = flow.run().await? else {

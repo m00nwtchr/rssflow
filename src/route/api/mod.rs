@@ -7,7 +7,7 @@ use axum::{
 	routing::{delete, get, put},
 	Json, Router,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, SqliteConnection, SqlitePool};
 use url::Url;
 
@@ -18,20 +18,28 @@ use crate::{
 	websub::WebSub,
 };
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct FlowResult {
 	name: String,
-	content: serde_json::value::Value,
+	content: FlowBuilder,
 }
 
 async fn get_flows(
 	State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let results = sqlx::query_as!(FlowResult, "SELECT name, content FROM flows")
+	let results: Vec<_> = sqlx::query!("SELECT name, content FROM flows")
 		.fetch_all(&mut *conn)
 		.await
-		.map_err(internal_error)?;
+		.map_err(internal_error)?
+		.into_iter()
+		.filter_map(|r| {
+			Some(FlowResult {
+				name: r.name,
+				content: serde_json::from_str(&r.content).ok()?,
+			})
+		})
+		.collect();
 
 	Ok(Json(results))
 }

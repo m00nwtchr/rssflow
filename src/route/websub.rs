@@ -14,6 +14,7 @@ use serde::Deserialize;
 use serde_with::{serde_as, DurationSeconds};
 use sha2::{Sha256, Sha384, Sha512};
 use sqlx::SqlitePool;
+use tracing::Instrument;
 use uuid::Uuid;
 
 use super::internal_error;
@@ -78,8 +79,10 @@ pub async fn receive(
 				{
 					let _ = input.accept(body.clone());
 
+					let span = tracing::Span::current();
 					tokio::spawn(async move {
-						if let Ok(_) = flow.run().await {
+						if let Ok(_) = flow.run().instrument(span.clone()).await {
+							let _span = span.entered();
 							if let Some(data) = flow.result() {
 								match data {
 									Data::Feed(feed) => {
@@ -180,6 +183,7 @@ pub fn router() -> Router<AppState> {
 	Router::new()
 		.route("/:uuid", post(receive))
 		.route("/:uuid", get(verify))
+		.route("/check", get(|| async {}))
 }
 
 #[derive(Debug)]

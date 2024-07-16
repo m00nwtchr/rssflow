@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use rand::{distributions::Uniform, Rng};
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 use uuid::{NoContext, Timestamp, Uuid};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -26,19 +26,21 @@ impl WebSub {
 		.await?;
 
 		let uuid = if let Some(record) = &record {
-			&record.uuid
+			Cow::Borrowed(&record.uuid)
 		} else {
-			&Uuid::new_v7(Timestamp::now(NoContext))
+			Cow::Owned(Uuid::new_v7(Timestamp::now(NoContext)))
 		};
 
 		let secret = if let Some(record) = &record {
-			&record.secret
+			Cow::Borrowed(&record.secret)
 		} else {
-			&rand::thread_rng()
-				.sample_iter(Uniform::new(' ', '~'))
-				.take(64)
-				.map(char::from)
-				.collect()
+			Cow::Owned(
+				rand::thread_rng()
+					.sample_iter(Uniform::new(' ', '~'))
+					.take(64)
+					.map(char::from)
+					.collect(),
+			)
 		};
 
 		let callback = format!("{public_url}websub/{uuid}");
@@ -46,10 +48,12 @@ impl WebSub {
 			("hub.callback", callback.as_str()),
 			("hub.mode", "subscribe"),
 			("hub.topic", &self.topic),
-			("hub.secret", secret),
+			("hub.secret", secret.as_str()),
 		]);
 
 		if record.is_none() {
+			let uuid = uuid.as_ref();
+			let secret = secret.as_str();
 			sqlx::query!(
 				"INSERT INTO websub (uuid, topic, hub, secret) VALUES (?, ?, ?, ?)",
 				uuid,

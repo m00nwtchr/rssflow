@@ -1,6 +1,5 @@
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
-use atom_syndication::Feed;
 use axum::{extract::FromRef, routing::get, Router};
 use futures::StreamExt;
 use sqlx::{
@@ -8,6 +7,9 @@ use sqlx::{
 	SqlitePool,
 };
 use tokio::sync::{broadcast, Mutex};
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
+use url::Url;
 
 use crate::{
 	config::AppConfig,
@@ -77,6 +79,13 @@ fn load_flow(content: &str) -> anyhow::Result<Flow> {
 	Ok(flow.build())
 }
 
+pub async fn websub_check(public_url: &Url) -> anyhow::Result<()> {
+	let resp = reqwest::get(public_url.join("/websub/check")?).await?;
+
+	resp.error_for_status()?;
+	Ok(())
+}
+
 pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
 	let pool = SqlitePoolOptions::new()
 		.connect_with(
@@ -112,12 +121,11 @@ pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
 		config: Arc::new(config),
 	}));
 
-	Ok(
-		Router::new()
-			.nest("/api", route::api())
-			.nest("/websub", route::websub())
-			.nest("/flow", route::flow())
-			.route("/", get(|| async { "Hello, World!".to_string() }))
-			.with_state(state), // .with_state(config.toml)
-	)
+	Ok(Router::new()
+		.nest("/api", route::api())
+		.nest("/websub", route::websub())
+		.nest("/flow", route::flow())
+		.route("/", get(|| async { "Hello, World!".to_string() }))
+		.with_state(state)
+		.layer(ServiceBuilder::new().layer(TraceLayer::new_for_http())))
 }

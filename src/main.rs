@@ -11,7 +11,10 @@ mod flow;
 mod route;
 mod websub;
 
-use crate::{app::app, config::AppConfig};
+use crate::{
+	app::{app, websub_check},
+	config::AppConfig,
+};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -23,6 +26,15 @@ async fn main() -> anyhow::Result<()> {
 	let config = AppConfig::load()?;
 
 	let listener = TcpListener::bind(SocketAddr::new(config.address, config.port)).await?;
+	if let Some(public_url) = &config.public_url {
+		let public_url = public_url.clone();
+		tokio::spawn(async move {
+			if let Err(e) = websub_check(&public_url).await {
+				tracing::error!("WebSub check failed. The endpoints at `{}` must be publicly accessible to allow WebSub push reception.", public_url.join("/websub/").unwrap());
+				tracing::error!("WebSub check error: {}", e.root_cause())
+			}
+		});
+	}
 	axum::serve(listener, app(config).await?).await?;
 
 	Ok(())
