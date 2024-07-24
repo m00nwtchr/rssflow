@@ -1,30 +1,23 @@
 #![allow(clippy::module_name_repetitions)]
-use std::sync::Arc;
 
-use super::feed::Feed;
-#[cfg(feature = "filter")]
-use super::filter::Filter;
-#[cfg(feature = "html")]
-use super::html::Html;
-#[cfg(feature = "retrieve")]
-use super::retrieve::Retrieve;
-#[cfg(feature = "sanitise")]
-use super::sanitise::Sanitise;
-#[cfg(feature = "wasm")]
-use super::wasm::Wasm;
-use crate::{
-	flow::{ai::AI, seen::Seen},
-	websub::WebSub,
-};
+use std::{future::Future, pin::Pin, sync::Arc};
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use derive_more::From;
+use enum_dispatch::enum_dispatch;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
+use crate::{
+	flow::{ai::AI, seen::Seen},
+	websub::WebSub,
+};
+
 #[async_trait]
+#[enum_dispatch]
 pub trait NodeTrait: Sync + Send {
 	fn inputs(&self) -> &[Arc<IO>];
 	fn outputs(&self) -> &[Arc<IO>];
@@ -56,196 +49,69 @@ pub trait NodeTrait: Sync + Send {
 	}
 }
 
-#[async_trait]
-impl NodeTrait for Node {
-	fn inputs(&self) -> &[Arc<IO>] {
-		match self {
-			Self::AI(n) => n.inputs(),
-			Self::Feed(n) => n.inputs(),
-			Self::Filter(n) => n.inputs(),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.inputs(),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.inputs(),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.inputs(),
-			Self::Seen(n) => n.inputs(),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.inputs(),
-			Self::Other(n) => n.inputs(),
-		}
-	}
-
-	fn outputs(&self) -> &[Arc<IO>] {
-		match self {
-			Self::AI(n) => n.outputs(),
-			Self::Feed(n) => n.outputs(),
-			Self::Filter(n) => n.outputs(),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.outputs(),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.outputs(),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.outputs(),
-			Self::Seen(n) => n.outputs(),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.outputs(),
-			Self::Other(n) => n.outputs(),
-		}
-	}
-
-	fn input_types(&self) -> &[DataKind] {
-		match self {
-			Self::AI(n) => n.input_types(),
-			Self::Feed(n) => n.input_types(),
-			Self::Filter(n) => n.input_types(),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.input_types(),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.input_types(),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.input_types(),
-			Self::Seen(n) => n.input_types(),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.input_types(),
-			Self::Other(n) => n.input_types(),
-		}
-	}
-
-	fn output_types(&self) -> &[DataKind] {
-		match self {
-			Self::AI(n) => n.output_types(),
-
-			Self::Feed(n) => n.output_types(),
-			Self::Filter(n) => n.output_types(),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.output_types(),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.output_types(),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.output_types(),
-			Self::Seen(n) => n.output_types(),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.output_types(),
-			Self::Other(n) => n.output_types(),
-		}
-	}
-
-	fn is_dirty(&self) -> bool {
-		match self {
-			Self::AI(n) => n.is_dirty(),
-
-			Self::Feed(n) => n.is_dirty(),
-			Self::Filter(n) => n.is_dirty(),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.is_dirty(),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.is_dirty(),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.is_dirty(),
-			Self::Seen(n) => n.is_dirty(),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.is_dirty(),
-			Self::Other(n) => n.is_dirty(),
-		}
-	}
-
-	async fn run(&self) -> anyhow::Result<()> {
-		match self {
-			Self::AI(n) => n.run().await,
-
-			Self::Feed(n) => n.run().await,
-			Self::Filter(n) => n.run().await,
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.run().await,
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.run().await,
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.run().await,
-			Self::Seen(n) => n.run().await,
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.run().await,
-			Self::Other(n) => n.run().await,
-		}
-	}
-
-	fn set_input(&mut self, index: usize, input: Arc<IO>) {
-		match self {
-			Self::AI(n) => n.set_input(index, input),
-
-			Self::Feed(n) => n.set_input(index, input),
-			Self::Filter(n) => n.set_input(index, input),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.set_input(index, input),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.set_input(index, input),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.set_input(index, input),
-			Self::Seen(n) => n.set_input(index, input),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.set_input(index, input),
-			Self::Other(n) => n.set_input(index, input),
-		}
-	}
-
-	fn set_output(&mut self, index: usize, output: Arc<IO>) {
-		match self {
-			Self::AI(n) => n.set_output(index, output),
-
-			Self::Feed(n) => n.set_output(index, output),
-			Self::Filter(n) => n.set_output(index, output),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.set_output(index, output),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.set_output(index, output),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.set_output(index, output),
-			Self::Seen(n) => n.set_output(index, output),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.set_output(index, output),
-			Self::Other(n) => n.set_output(index, output),
-		}
-	}
-
-	fn web_sub(&self) -> Option<WebSub> {
-		match self {
-			Self::AI(n) => n.web_sub(),
-
-			Self::Feed(n) => n.web_sub(),
-			Self::Filter(n) => n.web_sub(),
-			#[cfg(feature = "html")]
-			Self::Html(n) => n.web_sub(),
-			#[cfg(feature = "retrieve")]
-			Self::Retrieve(n) => n.web_sub(),
-			#[cfg(feature = "sanitise")]
-			Self::Sanitise(n) => n.web_sub(),
-			Self::Seen(n) => n.web_sub(),
-			#[cfg(feature = "wasm")]
-			Self::Wasm(n) => n.web_sub(),
-			Self::Other(n) => n.web_sub(),
-		}
-	}
-}
-
-#[derive(Serialize, Deserialize, From, Display)]
+#[derive(Serialize, Deserialize, Display)]
 #[serde(tag = "type")]
+#[enum_dispatch(NodeTrait)]
 pub enum Node {
 	AI(AI),
-	Feed(Feed),
+	Feed(super::feed::Feed),
 	#[cfg(feature = "filter")]
-	Filter(Filter),
+	Filter(super::filter::Filter),
 	#[cfg(feature = "html")]
-	Html(Html),
+	Html(super::html::Html),
 	#[cfg(feature = "retrieve")]
-	Retrieve(Retrieve),
+	Retrieve(super::retrieve::Retrieve),
 	#[cfg(feature = "sanitise")]
-	Sanitise(Sanitise),
+	Sanitise(super::sanitise::Sanitise),
 	Seen(Seen),
 	#[cfg(feature = "wasm")]
 	#[serde(skip)]
-	Wasm(Wasm),
+	Wasm(super::wasm::Wasm),
 	#[serde(skip)]
 	Other(Box<dyn NodeTrait>),
+}
+
+#[async_trait]
+impl NodeTrait for Box<dyn NodeTrait> {
+	fn inputs(&self) -> &[Arc<IO>] {
+		(**self).inputs()
+	}
+
+	fn outputs(&self) -> &[Arc<IO>] {
+		(**self).outputs()
+	}
+
+	fn input_types(&self) -> &[DataKind] {
+		(**self).input_types()
+	}
+
+	fn output_types(&self) -> &[DataKind] {
+		(**self).output_types()
+	}
+
+	fn is_dirty(&self) -> bool {
+		(**self).is_dirty()
+	}
+
+	async fn run(&self) -> anyhow::Result<()> {
+		(**self).run().await
+	}
+
+	fn set_input(&mut self, index: usize, input: Arc<IO>) {
+		(**self).set_input(index, input)
+	}
+
+	fn set_output(&mut self, index: usize, output: Arc<IO>) {
+		(**self).set_output(index, output)
+	}
+
+	fn connect(&mut self, io: Arc<IO>, port: usize) {
+		(**self).connect(io, port)
+	}
+
+	fn web_sub(&self) -> Option<WebSub> {
+		(**self).web_sub()
+	}
 }
 
 #[derive(EnumDiscriminants, Serialize, Deserialize, Debug, From, Clone, PartialEq)]
