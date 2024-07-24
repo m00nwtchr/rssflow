@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
+pub mod ai;
 pub mod feed;
 #[cfg(feature = "filter")]
 pub mod filter;

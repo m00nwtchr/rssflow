@@ -2,15 +2,6 @@
 use std::sync::Arc;
 
 use super::feed::Feed;
-use crate::{flow::seen::Seen, websub::WebSub};
-use anyhow::anyhow;
-use async_trait::async_trait;
-use bytes::Bytes;
-use derive_more::From;
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
-use strum::{Display, EnumDiscriminants};
-
 #[cfg(feature = "filter")]
 use super::filter::Filter;
 #[cfg(feature = "html")]
@@ -21,6 +12,17 @@ use super::retrieve::Retrieve;
 use super::sanitise::Sanitise;
 #[cfg(feature = "wasm")]
 use super::wasm::Wasm;
+use crate::{
+	flow::{ai::AI, seen::Seen},
+	websub::WebSub,
+};
+use anyhow::anyhow;
+use async_trait::async_trait;
+use bytes::Bytes;
+use derive_more::From;
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use strum::{Display, EnumDiscriminants};
 
 #[async_trait]
 pub trait NodeTrait: Sync + Send {
@@ -58,6 +60,7 @@ pub trait NodeTrait: Sync + Send {
 impl NodeTrait for Node {
 	fn inputs(&self) -> &[Arc<IO>] {
 		match self {
+			Self::AI(n) => n.inputs(),
 			Self::Feed(n) => n.inputs(),
 			Self::Filter(n) => n.inputs(),
 			#[cfg(feature = "html")]
@@ -75,6 +78,7 @@ impl NodeTrait for Node {
 
 	fn outputs(&self) -> &[Arc<IO>] {
 		match self {
+			Self::AI(n) => n.outputs(),
 			Self::Feed(n) => n.outputs(),
 			Self::Filter(n) => n.outputs(),
 			#[cfg(feature = "html")]
@@ -92,6 +96,7 @@ impl NodeTrait for Node {
 
 	fn input_types(&self) -> &[DataKind] {
 		match self {
+			Self::AI(n) => n.input_types(),
 			Self::Feed(n) => n.input_types(),
 			Self::Filter(n) => n.input_types(),
 			#[cfg(feature = "html")]
@@ -109,6 +114,8 @@ impl NodeTrait for Node {
 
 	fn output_types(&self) -> &[DataKind] {
 		match self {
+			Self::AI(n) => n.output_types(),
+
 			Self::Feed(n) => n.output_types(),
 			Self::Filter(n) => n.output_types(),
 			#[cfg(feature = "html")]
@@ -126,6 +133,8 @@ impl NodeTrait for Node {
 
 	fn is_dirty(&self) -> bool {
 		match self {
+			Self::AI(n) => n.is_dirty(),
+
 			Self::Feed(n) => n.is_dirty(),
 			Self::Filter(n) => n.is_dirty(),
 			#[cfg(feature = "html")]
@@ -143,6 +152,8 @@ impl NodeTrait for Node {
 
 	async fn run(&self) -> anyhow::Result<()> {
 		match self {
+			Self::AI(n) => n.run().await,
+
 			Self::Feed(n) => n.run().await,
 			Self::Filter(n) => n.run().await,
 			#[cfg(feature = "html")]
@@ -160,6 +171,8 @@ impl NodeTrait for Node {
 
 	fn set_input(&mut self, index: usize, input: Arc<IO>) {
 		match self {
+			Self::AI(n) => n.set_input(index, input),
+
 			Self::Feed(n) => n.set_input(index, input),
 			Self::Filter(n) => n.set_input(index, input),
 			#[cfg(feature = "html")]
@@ -177,6 +190,8 @@ impl NodeTrait for Node {
 
 	fn set_output(&mut self, index: usize, output: Arc<IO>) {
 		match self {
+			Self::AI(n) => n.set_output(index, output),
+
 			Self::Feed(n) => n.set_output(index, output),
 			Self::Filter(n) => n.set_output(index, output),
 			#[cfg(feature = "html")]
@@ -194,6 +209,8 @@ impl NodeTrait for Node {
 
 	fn web_sub(&self) -> Option<WebSub> {
 		match self {
+			Self::AI(n) => n.web_sub(),
+
 			Self::Feed(n) => n.web_sub(),
 			Self::Filter(n) => n.web_sub(),
 			#[cfg(feature = "html")]
@@ -213,6 +230,7 @@ impl NodeTrait for Node {
 #[derive(Serialize, Deserialize, From, Display)]
 #[serde(tag = "type")]
 pub enum Node {
+	AI(AI),
 	Feed(Feed),
 	#[cfg(feature = "filter")]
 	Filter(Filter),
