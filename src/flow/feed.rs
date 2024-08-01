@@ -141,8 +141,9 @@ impl NodeTrait for Feed {
 
 #[cfg(test)]
 mod test {
-	use crate::flow::{feed::Feed, node::NodeTrait};
 	use std::time::Duration;
+
+	use crate::flow::{feed::Feed, node::NodeTrait};
 
 	#[tokio::test]
 	pub async fn websub() -> anyhow::Result<()> {

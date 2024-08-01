@@ -1,8 +1,9 @@
+use std::{borrow::Cow, str::FromStr};
+
 use anyhow::anyhow;
 use rand::{distributions::Uniform, Rng};
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
-use std::{borrow::Cow, str::FromStr};
 use uuid::{NoContext, Timestamp, Uuid};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -127,8 +128,7 @@ impl FromStr for WebSub {
 			let rel = rel_part
 				.split('=')
 				.nth(1)
-				.map(|s| s.trim_matches('"'))
-				.unwrap_or("");
+				.map_or("", |s| s.trim_matches('"'));
 
 			match rel {
 				"hub" => hub = Some(url.to_string()),

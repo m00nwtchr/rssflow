@@ -2,12 +2,12 @@ use std::{fmt::Write, sync::Arc};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use pipe::{MyInputPipe, MyOutputPipe};
 use tokio::sync::Mutex;
 use wasmtime::{Config, Engine, Linker, Module, Store, TypedFunc};
 use wasmtime_wasi::{preview1, preview1::WasiP1Ctx, WasiCtxBuilder};
 
 use super::node::{collect_inputs, Data, DataKind, NodeTrait, IO};
-use pipe::{MyInputPipe, MyOutputPipe};
 
 /// Run a WASI module as a [Node]
 pub struct Wasm {
@@ -129,9 +129,10 @@ impl NodeTrait for Wasm {
 
 mod pipe {
 	#![allow(clippy::module_name_repetitions)]
+	use std::sync::Arc;
+
 	use bytes::{Bytes, BytesMut};
 	use parking_lot::Mutex;
-	use std::sync::Arc;
 	use wasmtime_wasi::{
 		HostInputStream, HostOutputStream, StdinStream, StdoutStream, StreamError, Subscribe,
 	};

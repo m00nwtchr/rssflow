@@ -1,6 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -98,15 +98,15 @@ impl NodeTrait for Box<dyn NodeTrait> {
 	}
 
 	fn set_input(&mut self, index: usize, input: Arc<IO>) {
-		(**self).set_input(index, input)
+		(**self).set_input(index, input);
 	}
 
 	fn set_output(&mut self, index: usize, output: Arc<IO>) {
-		(**self).set_output(index, output)
+		(**self).set_output(index, output);
 	}
 
 	fn connect(&mut self, io: Arc<IO>, port: usize) {
-		(**self).connect(io, port)
+		(**self).connect(io, port);
 	}
 
 	fn web_sub(&self) -> Option<WebSub> {

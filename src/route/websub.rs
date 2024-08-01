@@ -81,7 +81,7 @@ pub async fn receive(
 
 					let span = tracing::Span::current();
 					tokio::spawn(async move {
-						if let Ok(_) = flow.run().instrument(span.clone()).await {
+						if let Ok(()) = flow.run().instrument(span.clone()).await {
 							let _span = span.entered();
 							if let Some(data) = flow.result() {
 								match data {

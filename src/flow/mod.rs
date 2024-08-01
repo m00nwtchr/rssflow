@@ -23,8 +23,9 @@ pub mod seen;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-use crate::websub::WebSub;
 use node::{Data, DataKind, Node, NodeTrait, IO};
+
+use crate::websub::WebSub;
 
 #[inline]
 fn feed_io() -> Arc<IO> {
@@ -204,6 +205,10 @@ impl FlowBuilder {
 
 #[cfg(test)]
 mod test {
+	use std::time::Duration;
+
+	use scraper::Selector;
+
 	use super::node::Field;
 	use crate::flow::{
 		feed::Feed,
@@ -213,8 +218,6 @@ mod test {
 		seen::Seen,
 		FlowBuilder,
 	};
-	use scraper::Selector;
-	use std::time::Duration;
 
 	#[tokio::test]
 	pub async fn test() -> anyhow::Result<()> {

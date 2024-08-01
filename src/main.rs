@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
 		tokio::spawn(async move {
 			if let Err(e) = websub_check(&public_url).await {
 				tracing::error!("WebSub check failed. The endpoints at `{}` must be publicly accessible to allow WebSub push reception.", public_url.join("/websub/").unwrap());
-				tracing::error!("WebSub check error: {}", e.root_cause())
+				tracing::error!("WebSub check error: {}", e.root_cause());
 			}
 		});
 	}

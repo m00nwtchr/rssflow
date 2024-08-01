@@ -1,12 +1,12 @@
-use super::node::{Data, DataKind, NodeTrait, IO};
+use std::{cmp::min, slice, sync::Arc};
+
 use anyhow::anyhow;
 use async_trait::async_trait;
-use atom_syndication::ContentBuilder;
 use futures::stream::{self, StreamExt};
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::{cmp::min, slice, str::FromStr, sync::Arc};
 use url::Url;
+
+use super::node::{Data, DataKind, NodeTrait, IO};
 
 /// Generates a response using an AI assistant.
 #[derive(Serialize, Deserialize, Debug)]
