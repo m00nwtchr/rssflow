@@ -9,11 +9,11 @@ mod config;
 mod feed;
 mod flow;
 mod route;
-mod websub;
+mod subscriber;
 
 use crate::{
 	app::{app, websub_check},
-	config::AppConfig,
+	config::config,
 };
 
 #[global_allocator]
@@ -23,7 +23,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 async fn main() -> anyhow::Result<()> {
 	tracing_subscriber::fmt::init();
 
-	let config = AppConfig::load()?;
+	let config = config().await;
 
 	let listener = TcpListener::bind(SocketAddr::new(config.address, config.port)).await?;
 	if let Some(public_url) = &config.public_url {
@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
 			}
 		});
 	}
-	axum::serve(listener, app(config).await?).await?;
+	axum::serve(listener, app().await?).await?;
 
 	Ok(())
 }

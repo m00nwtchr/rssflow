@@ -14,7 +14,7 @@ use serde_with::{serde_as, DurationSeconds};
 use url::Url;
 
 use super::node::{Data, DataKind, NodeTrait, IO};
-use crate::websub::WebSub;
+use crate::subscriber::websub::WebSub;
 
 fn mutex_now() -> Mutex<Instant> {
 	Mutex::new(Instant::now())

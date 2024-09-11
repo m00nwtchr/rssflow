@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT secret, topic FROM websub WHERE uuid = ?",
+  "query": "SELECT secret, topic, hub FROM websub WHERE uuid = ?",
   "describe": {
     "columns": [
       {
@@ -12,6 +12,11 @@
         "name": "topic",
         "ordinal": 1,
         "type_info": "Text"
+      },
+      {
+        "name": "hub",
+        "ordinal": 2,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -19,8 +24,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "78a258508ca9b7ebaa565da748c471de6b0dcc27b12a13c68a0e2e10300e09d3"
+  "hash": "135b5c468ea89dc381d64c6bb5b95672d75c78451107f8dcc194356837215cec"
 }

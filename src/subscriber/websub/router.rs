@@ -14,13 +14,13 @@ use serde::Deserialize;
 use serde_with::{serde_as, DurationSeconds};
 use sha2::{Sha256, Sha384, Sha512};
 use sqlx::SqlitePool;
-use tracing::Instrument;
 use uuid::Uuid;
 
-use super::internal_error;
 use crate::{
 	app::AppState,
 	flow::node::{Data, DataKind, NodeTrait},
+	route::internal_error,
+	subscriber::websub::{WebSub, WebSubSubscriber},
 };
 
 #[allow(clippy::declare_interior_mutable_const)]
@@ -34,23 +34,12 @@ pub async fn receive(
 	body: Bytes,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let record = sqlx::query!("SELECT secret, topic FROM websub WHERE uuid = ?", uuid)
+	let record = sqlx::query!("SELECT secret, topic, hub FROM websub WHERE uuid = ?", uuid)
 		.fetch_optional(&mut *conn)
 		.await
 		.map_err(internal_error)?;
 
 	if let Some(record) = record {
-		let flows = sqlx::query_scalar!(
-			"SELECT flow FROM websub_flows WHERE topic = ?",
-			record.topic
-		)
-		.fetch_all(&mut *conn)
-		.await
-		.map_err(internal_error)?;
-		if flows.is_empty() {
-			return Ok(StatusCode::OK);
-		}
-
 		let signature = headers.get(X_HUB_SIGNATURE);
 
 		let Some(signature) = signature
@@ -66,39 +55,19 @@ pub async fn receive(
 
 		if verified {
 			tracing::info!("Received WebSub push for `{}`", record.topic);
-			for name in flows {
-				let Some(flow) = state.flows.lock().await.get(&name).cloned() else {
-					return Ok(StatusCode::OK);
-				};
 
-				// TODO: Proper handling for multiple WebSub-type inputs in one flow
-				if let Some(input) = flow
-					.inputs()
-					.iter()
-					.find(|i| matches!(i.kind(), DataKind::WebSub))
-				{
-					let _ = input.accept(body.clone());
-
-					let span = tracing::Span::current();
-					tokio::spawn(async move {
-						if let Ok(()) = flow.run().instrument(span.clone()).await {
-							let _span = span.entered();
-							if let Some(data) = flow.result() {
-								match data {
-									Data::Feed(feed) => {
-										for entry in feed.entries.into_iter().rev() {
-											let _ = flow.tx().send(Data::Entry(entry));
-										}
-									}
-									_ => {
-										let _ = flow.tx().send(data);
-									}
-								}
-							}
-						}
-					});
-				}
-			}
+			state
+				.web_sub_subscriber
+				.handle(
+					&state,
+					&WebSub {
+						topic: record.topic,
+						hub: record.hub,
+					},
+					body,
+				)
+				.await
+				.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 		}
 	}
 

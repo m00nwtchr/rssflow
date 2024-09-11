@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n\t\tSELECT topic, hub\n\t\tFROM websub\n\t\tWHERE NOT EXISTS (\n\t\t\tSELECT 1\n\t\t\tFROM websub_flows\n\t\t\tWHERE websub_flows.topic = websub.topic\n\t\t)\n\t\t",
+  "query": "\n\t\t\tSELECT topic, hub\n\t\t\tFROM websub\n\t\t\tWHERE NOT EXISTS (\n\t\t\t\tSELECT 1\n\t\t\t\tFROM websub_flows\n\t\t\t\tWHERE websub_flows.topic = websub.topic\n\t\t\t)\n\t\t\t",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "29d42747dc08bd6564b20374731f75f1729017d4b455fda733723c8e46584c29"
+  "hash": "abb4470269623302c0f5380a15a0392a8d7498360f9ca04d39a7e9e7ddb71561"
 }

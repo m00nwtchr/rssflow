@@ -14,8 +14,12 @@ use url::Url;
 use super::internal_error;
 use crate::{
 	app::{AppState, FlowHandle},
+	config::config,
 	flow::{node::NodeTrait, FlowBuilder},
-	websub::WebSub,
+	subscriber::{
+		websub::{WebSub, WebSubSubscriber},
+		Subscriber,
+	},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -96,36 +100,12 @@ async fn update_flow(
 		Ok(StatusCode::CREATED)
 	};
 
-	if let Some(websub) = flow.web_sub() {
-		if let Some(public_url) = &state.config.public_url {
-			if websub
-				.subscribe(public_url.as_str(), &mut conn)
-				.await
-				.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?
-			{
-				tracing::info!("Subscribed to `{}` at `{}`", websub.topic, websub.hub);
-			}
-
-			let mut tx = conn.begin().await.map_err(internal_error)?;
-
-			sqlx::query!("DELETE FROM websub_flows WHERE flow = ?", name)
-				.execute(&mut *tx)
-				.await
-				.map_err(internal_error)?;
-
-			// TODO: Add handling for flows subscribed to multiple WebSub feeds
-			sqlx::query!(
-				"INSERT OR IGNORE INTO websub_flows (topic, flow) VALUES (?, ?)",
-				websub.topic,
-				name
-			)
-			.execute(&mut *tx)
+	if flow.has_subscriptions() {
+		state
+			.web_sub_subscriber
+			.register_flow(&name, &flow)
 			.await
-			.map_err(internal_error)?;
-
-			tx.commit().await.map_err(internal_error)?;
-			handle_flow_unsubscribe(public_url, &mut conn).await?;
-		}
+			.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 	}
 
 	state
@@ -149,44 +129,14 @@ async fn delete_flow(
 			.await
 			.map_err(internal_error)?;
 
-		if let Some(public_url) = &state.config.public_url {
-			if flow.web_sub().is_some() {
-				handle_flow_unsubscribe(public_url, &mut conn).await?;
-			}
-		}
+		state
+			.web_sub_subscriber
+			.unregister_flow(flow)
+			.await
+			.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 	}
 
 	Ok(StatusCode::NO_CONTENT)
-}
-
-async fn handle_flow_unsubscribe(
-	public_url: &Url,
-	conn: &mut SqliteConnection,
-) -> Result<(), (StatusCode, String)> {
-	let res = sqlx::query_as!(
-		WebSub,
-		r#"
-		SELECT topic, hub
-		FROM websub
-		WHERE NOT EXISTS (
-			SELECT 1
-			FROM websub_flows
-			WHERE websub_flows.topic = websub.topic
-		)
-		"#
-	)
-	.fetch_all(&mut *conn)
-	.await
-	.map_err(internal_error)?;
-
-	for websub in res {
-		websub
-			.unsubscribe(public_url.as_str(), conn)
-			.await
-			.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-	}
-
-	Ok(())
 }
 
 pub fn router() -> Router<AppState> {

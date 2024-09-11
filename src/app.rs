@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
-use axum::{extract::FromRef, routing::get, Router};
+use axum::{extract::FromRef, http::StatusCode, routing::get, Router};
 use futures::StreamExt;
 use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
@@ -12,9 +12,10 @@ use tower_http::trace::TraceLayer;
 use url::Url;
 
 use crate::{
-	config::AppConfig,
+	config::{config, AppConfig},
 	flow::{node::Data, Flow, FlowBuilder},
-	route,
+	route, subscriber,
+	subscriber::websub::WebSubSubscriber,
 };
 
 #[derive(Clone)]
@@ -45,7 +46,8 @@ impl Deref for FlowHandle {
 pub struct AppStateInner {
 	pub flows: Mutex<HashMap<String, FlowHandle>>,
 	pub pool: SqlitePool,
-	pub config: Arc<AppConfig>,
+
+	pub web_sub_subscriber: WebSubSubscriber,
 }
 
 #[derive(Clone)]
@@ -67,12 +69,6 @@ impl FromRef<AppState> for SqlitePool {
 	}
 }
 
-impl FromRef<AppState> for Arc<AppConfig> {
-	fn from_ref(input: &AppState) -> Self {
-		input.config.clone()
-	}
-}
-
 fn load_flow(content: &str) -> anyhow::Result<Flow> {
 	let flow: FlowBuilder = serde_json::de::from_str(content)?;
 
@@ -86,7 +82,8 @@ pub async fn websub_check(public_url: &Url) -> anyhow::Result<()> {
 	Ok(())
 }
 
-pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
+pub async fn app() -> anyhow::Result<Router> {
+	let config = config().await;
 	let pool = SqlitePoolOptions::new()
 		.connect_with(
 			SqliteConnectOptions::new()
@@ -115,17 +112,20 @@ pub async fn app(config: AppConfig) -> anyhow::Result<Router> {
 		.collect()
 		.await;
 
+	let web_sub_subscriber = WebSubSubscriber::new(pool.clone());
 	let state = AppState(Arc::new(AppStateInner {
 		flows: Mutex::new(flows),
 		pool,
-		config: Arc::new(config),
+		web_sub_subscriber,
 	}));
 
-	Ok(Router::new()
+	let router = Router::new()
 		.nest("/api", route::api())
-		.nest("/websub", route::websub())
 		.nest("/flow", route::flow())
-		.route("/", get(|| async { "Hello, World!".to_string() }))
+		.route("/", get(|| async { StatusCode::OK }))
+		.nest("/websub", subscriber::websub::router())
 		.with_state(state)
-		.layer(ServiceBuilder::new().layer(TraceLayer::new_for_http())))
+		.layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
+
+	Ok(router)
 }

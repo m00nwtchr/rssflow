@@ -11,10 +11,8 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
-use crate::{
-	flow::{ai::AI, seen::Seen},
-	websub::WebSub,
-};
+use crate::flow::{ai::AI, seen::Seen};
+use crate::subscriber::websub::WebSub;
 
 #[async_trait]
 #[enum_dispatch]

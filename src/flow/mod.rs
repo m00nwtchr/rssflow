@@ -25,7 +25,7 @@ pub mod wasm;
 
 use node::{Data, DataKind, Node, NodeTrait, IO};
 
-use crate::websub::WebSub;
+use crate::subscriber::websub::WebSub;
 
 #[inline]
 fn feed_io() -> Arc<IO> {
@@ -40,7 +40,7 @@ fn feed_arr<const N: usize>() -> [Arc<IO>; N] {
 pub struct Flow {
 	nodes: Mutex<Vec<Node>>,
 
-	web_sub: parking_lot::Mutex<Option<WebSub>>,
+	subscriptions: parking_lot::Mutex<Vec<WebSub>>,
 	inputs: Box<[Arc<IO>]>,
 	outputs: Box<[Arc<IO>]>,
 }
@@ -48,6 +48,14 @@ pub struct Flow {
 impl Flow {
 	pub fn result(&self) -> Option<Data> {
 		self.outputs.first()?.get()
+	}
+
+	pub fn subscriptions(&self) -> Vec<WebSub> {
+		self.subscriptions.lock().clone()
+	}
+
+	pub fn has_subscriptions(&self) -> bool {
+		!self.subscriptions.lock().is_empty()
 	}
 }
 
@@ -72,6 +80,12 @@ impl NodeTrait for Flow {
 	async fn run(&self) -> anyhow::Result<()> {
 		// TODO: Run nodes in order based on input/output dependencies, run adjacent nodes concurrently.
 
+		let mut subscriptions: Option<Vec<WebSub>> = if self.subscriptions.lock().is_empty() {
+			Some(Vec::new())
+		} else {
+			None
+		};
+
 		let nodes = self.nodes.lock().await;
 		for node in nodes.iter() {
 			if node.is_dirty() {
@@ -82,11 +96,17 @@ impl NodeTrait for Flow {
 				for io in inputs.iter().filter(|i| i.is_dirty()) {
 					io.clear();
 				}
+
+				if let Some(subscriptions) = &mut subscriptions {
+					if let Some(sub) = node.web_sub() {
+						subscriptions.push(sub);
+					}
+				}
 			}
 		}
 
-		if let Some(web_sub) = nodes.first().and_then(NodeTrait::web_sub) {
-			self.web_sub.lock().replace(web_sub);
+		if let Some(subscriptions) = subscriptions {
+			*self.subscriptions.lock() = subscriptions;
 		}
 
 		Ok(())
@@ -100,7 +120,7 @@ impl NodeTrait for Flow {
 	}
 
 	fn web_sub(&self) -> Option<WebSub> {
-		self.web_sub.lock().clone()
+		self.subscriptions.lock().first().cloned()
 	}
 }
 
@@ -198,7 +218,7 @@ impl FlowBuilder {
 			nodes: Mutex::new(self.nodes),
 			inputs,
 			outputs,
-			web_sub: parking_lot::Mutex::default(),
+			subscriptions: parking_lot::Mutex::default(),
 		}
 	}
 }

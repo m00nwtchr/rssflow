@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 
 use confique::Config;
+use tokio::sync::OnceCell;
 use url::Url;
 
 #[derive(Config)]
@@ -18,8 +19,18 @@ pub struct AppConfig {
 	pub public_url: Option<Url>,
 }
 
-impl AppConfig {
-	pub fn load() -> anyhow::Result<AppConfig> {
-		Ok(Config::builder().env().file("rssflow.toml").load()?)
-	}
+pub static CONFIG: OnceCell<AppConfig> = OnceCell::const_new();
+
+async fn init() -> AppConfig {
+	// dotenv().ok();
+
+	Config::builder()
+		.env()
+		.file("rssflow.toml")
+		.load()
+		.expect("")
+}
+
+pub async fn config() -> &'static AppConfig {
+	CONFIG.get_or_init(init).await
 }
