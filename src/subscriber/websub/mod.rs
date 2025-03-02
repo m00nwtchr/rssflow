@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use bytes::Bytes;
-use rand::{distr::Uniform, Rng};
+use rand::distr::{Alphanumeric, SampleString};
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
 use tracing::Instrument;
@@ -19,6 +19,10 @@ use crate::{
 		Flow,
 	},
 };
+
+// https://security.stackexchange.com/questions/95972/what-are-requirements-for-hmac-secret-key#96176
+// https://www.w3.org/TR/websub/#x5-1-subscriber-sends-subscription-request
+const HMAC_SECRET_LENGTH: usize = 64; // 64 * 8 = 512 bits
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WebSub {
@@ -106,7 +110,7 @@ impl WebSubSubscriber {
 	pub async fn unregister_flow(&self, flow: FlowHandle) -> anyhow::Result<()> {
 		if flow.has_subscriptions() {
 			let mut conn = self.pool.acquire().await?;
-			self.remove_unused_subscriptions(&mut conn).await?
+			self.remove_unused_subscriptions(&mut conn).await?;
 		}
 
 		Ok(())
@@ -155,10 +159,7 @@ impl WebSubSubscriber {
 		} else {
 			(
 				Uuid::new_v7(Timestamp::now(NoContext)),
-				rand::rng()
-					.sample_iter(Uniform::new(' ', '~'))
-					.take(64)
-					.collect(),
+				Alphanumeric.sample_string(&mut rand::rng(), HMAC_SECRET_LENGTH),
 			)
 		};
 
