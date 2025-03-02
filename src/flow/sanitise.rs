@@ -2,7 +2,6 @@ use std::{future::Future, slice, sync::Arc, thread::available_parallelism};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use atom_syndication::Entry;
 use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 

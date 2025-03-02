@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_regex;
 
 use super::node::{Data, DataKind, Field, NodeTrait, IO};
+use crate::flow::get_value;
 
 /// Filter out specific entries
 #[derive(Serialize, Deserialize, Debug)]
@@ -60,12 +61,7 @@ impl NodeTrait for Filter {
 		};
 
 		atom.entries.retain(|item| {
-			let cmp = match self.field {
-				Field::Author => item.authors().first().map(|p| &p.name),
-				Field::Summary => item.summary().map(|s| &s.value),
-				Field::Content => item.content().and_then(|c| c.value.as_ref()),
-				Field::Title => Some(&item.title().value),
-			};
+			let cmp = get_value(&self.field, item);
 			let cmp = if let Some(cmp) = cmp { cmp } else { "" };
 
 			let value = match &self.filter {

@@ -16,7 +16,7 @@ pub mod filter;
 #[cfg(feature = "html")]
 pub mod html;
 pub mod node;
-mod replace;
+pub mod replace;
 #[cfg(feature = "retrieve")]
 pub mod retrieve;
 #[cfg(feature = "sanitise")]
@@ -25,7 +25,7 @@ pub mod seen;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-use node::{Data, DataKind, Node, NodeTrait, IO};
+use node::{Data, DataKind, IO, Node, NodeTrait};
 
 use crate::{flow::node::Field, subscriber::websub::WebSub};
 
@@ -233,12 +233,12 @@ mod test {
 
 	use super::node::Field;
 	use crate::flow::{
+		FlowBuilder,
 		feed::Feed,
 		filter::{Filter, Kind},
 		retrieve::Retrieve,
 		sanitise::Sanitise,
 		seen::Seen,
-		FlowBuilder,
 	};
 
 	#[tokio::test]
@@ -288,11 +288,12 @@ mod test {
 	}
 }
 
-fn get_value<'a>(field: &Field, item: &'a mut Entry) -> Option<&'a String> {
+fn get_value<'a>(field: &Field, item: &'a Entry) -> Option<&'a String> {
 	match field {
-		Field::Summary => item.summary().map(|s| &s.value),
-		Field::Content => item.content().and_then(|c| c.value.as_ref()),
-		_ => unimplemented!(),
+		Field::Author => item.authors.first().map(|p| &p.name),
+		Field::Summary => item.summary.as_ref().map(|t| &t.value),
+		Field::Content => item.content.as_ref().and_then(|c| c.value.as_ref()),
+		Field::Title => item.title.as_ref().map(|t| &t.content),
 	}
 }
 
