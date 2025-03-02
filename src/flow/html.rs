@@ -94,13 +94,14 @@ impl NodeTrait for Html {
 		};
 		let html = scraper::Html::parse_document(std::str::from_utf8(&content)?);
 
-		let mut links = html.select(&Selector::parse("link").map_err(|e| anyhow!(e.to_string()))?);
+		let selector = Selector::parse("link").map_err(|e| anyhow!(e.to_string()))?;
+		let mut links = html.select(&selector);
 
 		if !sub {
 			let hub = links
 				.clone()
-				.find(|l| l.attr("rel").map(|a| a.eq("hub")).unwrap_or_default());
-			let this = links.find(|l| l.attr("rel").map(|a| a.eq("self")).unwrap_or_default());
+				.find(|l| l.attr("rel").is_some_and(|a| a.eq("hub")));
+			let this = links.find(|l| l.attr("rel").is_some_and(|a| a.eq("self")));
 
 			if let (Some(hub), Some(this)) = (hub, this) {
 				self.web_sub.lock().replace(WebSub {
@@ -112,7 +113,7 @@ impl NodeTrait for Html {
 
 		todo!();
 		*self.last_fetch.lock() = Instant::now();
-		self.output.accept(todo!())
+		// self.output.accept(todo!())
 	}
 
 	fn set_input(&mut self, _index: usize, input: Arc<IO>) {

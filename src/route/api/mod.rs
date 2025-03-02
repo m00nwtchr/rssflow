@@ -143,7 +143,7 @@ pub fn router() -> Router<AppState> {
 	Router::new()
 		// .route("/flow", post(create_flow))
 		.route("/flow", get(get_flows))
-		.route("/flow/:name", get(get_flow))
-		.route("/flow/:name", put(update_flow))
-		.route("/flow/:name", delete(delete_flow))
+		.route("/flow/{name}", get(get_flow))
+		.route("/flow/{name}", put(update_flow))
+		.route("/flow/{name}", delete(delete_flow))
 }

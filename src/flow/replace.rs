@@ -1,4 +1,4 @@
-use std::{future::Future, slice, sync::Arc, thread::available_parallelism};
+use std::{slice, sync::Arc, thread::available_parallelism};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -8,20 +8,13 @@ use serde::{Deserialize, Serialize};
 
 use super::node::{Data, DataKind, Field, NodeTrait, IO};
 
-#[inline]
-pub fn default_ammonia() -> ammonia::Builder<'static> {
-	let mut ammonia = ammonia::Builder::new();
-	ammonia.add_generic_attributes(["style"]);
-	ammonia
-}
-
-/// Removes unnecessary elements/attributes from entry html.
+/// String replace
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Sanitise {
+pub struct Replace {
 	field: Field,
 
-	#[serde(skip, default = "default_ammonia")]
-	ammonia: ammonia::Builder<'static>,
+	old: String,
+	new: String,
 
 	#[serde(skip)]
 	input: Arc<IO>,
@@ -29,11 +22,12 @@ pub struct Sanitise {
 	output: Arc<IO>,
 }
 
-impl Sanitise {
-	pub fn new(field: Field) -> Self {
+impl Replace {
+	pub fn new(field: Field, old: String, new: String) -> Self {
 		Self {
 			field,
-			ammonia: default_ammonia(),
+			old,
+			new,
 			input: Arc::default(),
 			output: Arc::default(),
 		}
@@ -41,7 +35,7 @@ impl Sanitise {
 }
 
 #[async_trait]
-impl NodeTrait for Sanitise {
+impl NodeTrait for Replace {
 	fn inputs(&self) -> &[Arc<IO>] {
 		slice::from_ref(&self.input)
 	}
@@ -58,7 +52,7 @@ impl NodeTrait for Sanitise {
 		&[DataKind::Feed]
 	}
 
-	#[tracing::instrument(name = "sanitise_node", skip(self))]
+	#[tracing::instrument(name = "replace_node", skip(self))]
 	async fn run(&self) -> anyhow::Result<()> {
 		let Some(Data::Feed(mut atom)) = self.input.get() else {
 			return Err(anyhow!(""));
@@ -70,7 +64,7 @@ impl NodeTrait for Sanitise {
 					return item;
 				};
 
-				let value = self.ammonia.clean(value).to_string();
+				let value = value.replace(&self.old, &self.new);
 
 				super::set_value(&self.field, &mut item, value);
 

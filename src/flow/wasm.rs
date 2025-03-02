@@ -134,7 +134,7 @@ mod pipe {
 	use bytes::{Bytes, BytesMut};
 	use parking_lot::Mutex;
 	use wasmtime_wasi::{
-		HostInputStream, HostOutputStream, StdinStream, StdoutStream, StreamError, Subscribe,
+		InputStream, OutputStream, Pollable, StdinStream, StdoutStream, StreamError,
 	};
 
 	#[derive(Debug, Clone)]
@@ -167,7 +167,8 @@ mod pipe {
 		}
 	}
 
-	impl HostOutputStream for MyOutputPipe {
+	#[async_trait::async_trait]
+	impl OutputStream for MyOutputPipe {
 		fn write(&mut self, bytes: Bytes) -> Result<(), StreamError> {
 			let mut buf = self.buffer.lock();
 			buf.extend_from_slice(bytes.as_ref());
@@ -184,12 +185,12 @@ mod pipe {
 	}
 
 	#[async_trait::async_trait]
-	impl Subscribe for MyOutputPipe {
+	impl Pollable for MyOutputPipe {
 		async fn ready(&mut self) {}
 	}
 
 	impl StdoutStream for MyOutputPipe {
-		fn stream(&self) -> Box<dyn HostOutputStream> {
+		fn stream(&self) -> Box<dyn OutputStream> {
 			Box::new(self.clone())
 		}
 
@@ -199,7 +200,7 @@ mod pipe {
 	}
 
 	#[async_trait::async_trait]
-	impl HostInputStream for MyInputPipe {
+	impl InputStream for MyInputPipe {
 		fn read(&mut self, size: usize) -> Result<Bytes, StreamError> {
 			let mut buffer = self.buffer.lock();
 			if buffer.is_empty() {
@@ -213,12 +214,12 @@ mod pipe {
 	}
 
 	#[async_trait::async_trait]
-	impl Subscribe for MyInputPipe {
+	impl Pollable for MyInputPipe {
 		async fn ready(&mut self) {}
 	}
 
 	impl StdinStream for MyInputPipe {
-		fn stream(&self) -> Box<dyn HostInputStream> {
+		fn stream(&self) -> Box<dyn InputStream> {
 			Box::new(self.clone())
 		}
 

@@ -5,6 +5,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use atom_syndication::Entry;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -15,6 +16,7 @@ pub mod filter;
 #[cfg(feature = "html")]
 pub mod html;
 pub mod node;
+mod replace;
 #[cfg(feature = "retrieve")]
 pub mod retrieve;
 #[cfg(feature = "sanitise")]
@@ -25,7 +27,7 @@ pub mod wasm;
 
 use node::{Data, DataKind, Node, NodeTrait, IO};
 
-use crate::subscriber::websub::WebSub;
+use crate::{flow::node::Field, subscriber::websub::WebSub};
 
 #[inline]
 fn feed_io() -> Arc<IO> {
@@ -283,5 +285,25 @@ mod test {
 		// tracing::info!("{}", channel.to_string());
 
 		Ok(())
+	}
+}
+
+fn get_value<'a>(field: &Field, item: &'a mut Entry) -> Option<&'a String> {
+	match field {
+		Field::Summary => item.summary().map(|s| &s.value),
+		Field::Content => item.content().and_then(|c| c.value.as_ref()),
+		_ => unimplemented!(),
+	}
+}
+
+fn set_value(field: &Field, item: &mut Entry, value: String) {
+	match field {
+		Field::Summary => {
+			item.summary.as_mut().unwrap().value = value;
+		}
+		Field::Content => {
+			item.content.as_mut().unwrap().value = Some(value);
+		}
+		_ => unimplemented!(),
 	}
 }

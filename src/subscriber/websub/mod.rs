@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use bytes::Bytes;
-use rand::{distributions::Uniform, Rng};
+use rand::{distr::Uniform, Rng};
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
 use tracing::Instrument;
@@ -155,7 +155,7 @@ impl WebSubSubscriber {
 		} else {
 			(
 				Uuid::new_v7(Timestamp::now(NoContext)),
-				rand::thread_rng()
+				rand::rng()
 					.sample_iter(Uniform::new(' ', '~'))
 					.take(64)
 					.collect(),

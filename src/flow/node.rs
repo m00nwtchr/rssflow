@@ -11,8 +11,10 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
-use crate::flow::{ai::AI, seen::Seen};
-use crate::subscriber::websub::WebSub;
+use crate::{
+	flow::{ai::AI, seen::Seen},
+	subscriber::websub::WebSub,
+};
 
 #[async_trait]
 #[enum_dispatch]
@@ -57,6 +59,7 @@ pub enum Node {
 	Filter(super::filter::Filter),
 	#[cfg(feature = "html")]
 	Html(super::html::Html),
+	Replace(super::replace::Replace),
 	#[cfg(feature = "retrieve")]
 	Retrieve(super::retrieve::Retrieve),
 	#[cfg(feature = "sanitise")]

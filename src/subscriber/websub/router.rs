@@ -150,8 +150,8 @@ pub async fn verify(
 
 pub fn router() -> Router<AppState> {
 	Router::new()
-		.route("/:uuid", post(receive))
-		.route("/:uuid", get(verify))
+		.route("/{uuid}", post(receive))
+		.route("/{uuid}", get(verify))
 		.route("/check", get(|| async {}))
 }
 

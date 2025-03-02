@@ -66,6 +66,6 @@ async fn subscribe(
 
 pub fn router() -> Router<AppState> {
 	Router::new()
-		.route("/:name", get(run))
-		.route("/:name/sse", get(subscribe))
+		.route("/{name}", get(run))
+		.route("/{name}/sse", get(subscribe))
 }
