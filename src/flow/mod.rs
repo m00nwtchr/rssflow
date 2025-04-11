@@ -293,7 +293,7 @@ fn get_value<'a>(field: &Field, item: &'a Entry) -> Option<&'a String> {
 		Field::Author => item.authors.first().map(|p| &p.name),
 		Field::Summary => item.summary.as_ref().map(|t| &t.value),
 		Field::Content => item.content.as_ref().and_then(|c| c.value.as_ref()),
-		Field::Title => item.title.as_ref().map(|t| &t.content),
+		Field::Title => Some(&item.title.value),
 	}
 }
 
