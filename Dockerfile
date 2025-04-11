@@ -16,7 +16,7 @@ WORKDIR /app
 
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/rssflow ./
 
-EXPOSE 80:80/tcp
+EXPOSE 80/tcp
 VOLUME /data
 
 ENV PORT=80
