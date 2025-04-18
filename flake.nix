@@ -42,6 +42,8 @@
 
       src = craneLib.cleanCargoSource self;
 
+      rustHostPlatform = pkgs.hostPlatform.rust.rustcTarget;
+
       # Common arguments can be set here to avoid repeating them later
       commonArgs = {
         inherit src;
@@ -127,6 +129,9 @@
 
       devShells.default = craneDev.devShell {
         checks = self.checks.${system};
+
+        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = "${pkgs.llvmPackages.clangUseLLVM}/bin/clang";
+        CARGO_ENCODED_RUSTFLAGS = "-Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold";
 
         packages = [];
       };
