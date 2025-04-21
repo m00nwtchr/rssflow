@@ -3,5 +3,9 @@ services:
     image: localhost/rssflow:latest
     ports:
       - 3434:3434
+  websub:
+    image: localhost/rssflow-websub:latest
+    ports:
+      - 3435:3435
   fetch:
     image: localhost/rssflow-fetch:latest

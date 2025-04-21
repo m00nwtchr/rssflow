@@ -103,15 +103,20 @@
             ];
           });
 
+        rssflow-websub = craneLib.buildPackage (mkIndividualCrateArgs craneLib
+          // {
+            pname = "rssflow-websub";
+            cargoExtraArgs = "-p rssflow-websub";
+
+            src = fileSetForCrate ./services/websub [];
+          });
+
         rssflow-fetch = craneLib.buildPackage (mkIndividualCrateArgs craneLib
           // {
             pname = "rssflow-fetch";
             cargoExtraArgs = "-p rssflow-fetch";
 
-            src = fileSetForCrate ./services/fetch [
-              (craneLib.fileset.commonCargoSources ./services/websub)
-              (lib.fileset.fileFilter (file: file.hasExt "proto") ./services/websub)
-            ];
+            src = fileSetForCrate ./services/fetch [];
           });
       };
 
@@ -124,6 +129,15 @@
           contents = [packages.rssflow];
           config = {
             Cmd = ["${packages.rssflow}/bin/rssflow"];
+          };
+        };
+
+        rssflow-websub = pkgs.dockerTools.buildLayeredImage {
+          name = "rssflow-websub";
+          tag = "latest";
+          contents = [packages.rssflow-websub];
+          config = {
+            Cmd = ["${packages.rssflow-websub}/bin/rssflow-websub"];
           };
         };
 
