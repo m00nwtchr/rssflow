@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package rssflow.websub;
+
+import "feed.proto";
+import "registry.proto";
+
+service WebSubService {
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+  rpc Unsubscribe(SubscribeRequest) returns (SubscribeResponse);
+  
+  rpc Receive(WebSubRequest) returns (stream WebSubEvent);
+}
+
+message SubscribeRequest {
+  WebSub sub = 1;
+  rssflow.registry.Node node = 2;
+}
+
+message SubscribeResponse {
+
+}
+
+message WebSub {
+  string topic = 1;
+  string hub = 2;
+}
+
+message WebSubRequest {
+
+}
+
+message WebSubEvent {
+  bytes body = 1;
+}

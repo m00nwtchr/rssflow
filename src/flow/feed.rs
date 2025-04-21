@@ -10,10 +10,10 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 use reqwest::{header, header::LINK};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DurationSeconds};
+use serde_with::{DurationSeconds, serde_as};
 use url::Url;
 
-use super::node::{Data, DataKind, NodeTrait, IO};
+use super::node::{Data, DataKind, IO, NodeTrait};
 use crate::subscriber::websub::WebSub;
 
 fn mutex_now() -> Mutex<Instant> {
@@ -33,11 +33,6 @@ pub struct Feed {
 
 	#[serde(skip)]
 	web_sub: Mutex<Option<WebSub>>,
-
-	#[serde(skip)]
-	input: Arc<IO>,
-	#[serde(skip)]
-	output: Arc<IO>,
 }
 
 impl Feed {
@@ -47,9 +42,6 @@ impl Feed {
 			ttl,
 			last_fetch: mutex_now(),
 			web_sub: Mutex::default(),
-
-			input: Arc::default(),
-			output: Arc::default(),
 		}
 	}
 }
@@ -125,13 +117,6 @@ impl NodeTrait for Feed {
 
 		*self.last_fetch.lock() = Instant::now();
 		self.output.accept(feed)
-	}
-
-	fn set_input(&mut self, _index: usize, input: Arc<IO>) {
-		self.input = input;
-	}
-	fn set_output(&mut self, _index: usize, output: Arc<IO>) {
-		self.output = output;
 	}
 
 	fn web_sub(&self) -> Option<WebSub> {

@@ -1,31 +1,21 @@
-use std::sync::Arc;
-
 use axum::{
+	Json, Router,
 	extract::{Path, State},
 	http::StatusCode,
 	response::IntoResponse,
 	routing::{delete, get, put},
-	Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Acquire, SqliteConnection, SqlitePool};
-use url::Url;
+use sqlx::SqlitePool;
+use tracing::error;
 
 use super::internal_error;
-use crate::{
-	app::{AppState, FlowHandle},
-	config::config,
-	flow::{node::NodeTrait, FlowBuilder},
-	subscriber::{
-		websub::{WebSub, WebSubSubscriber},
-		Subscriber,
-	},
-};
+use crate::{RSSFlow, flow::Flow};
 
 #[derive(Serialize, Deserialize)]
 struct FlowResult {
 	name: String,
-	content: FlowBuilder,
+	content: Flow,
 }
 
 async fn get_flows(
@@ -40,7 +30,9 @@ async fn get_flows(
 		.filter_map(|r| {
 			Some(FlowResult {
 				name: r.name,
-				content: serde_json::from_str(&r.content).ok()?,
+				content: serde_json::from_str(&r.content)
+					.inspect_err(|err| error!("{err}"))
+					.ok()?,
 			})
 		})
 		.collect();
@@ -57,21 +49,22 @@ async fn get_flow(
 		.await
 		.map_err(internal_error)?;
 
-	Ok(content)
+	let flow: Flow = serde_json::from_str(&content).map_err(internal_error)?;
+	Ok(Json(flow))
 }
 
 async fn update_flow(
 	Path(name): Path<String>,
-	State(state): State<AppState>,
+	State(state): State<RSSFlow>,
 	State(pool): State<SqlitePool>,
-	Json(flow): Json<FlowBuilder>,
+	Json(flow): Json<Flow>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let json = serde_json::to_string(&flow).map_err(internal_error)?;
 
-	let flow = flow.build();
-	flow.run()
-		.await
-		.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
+	// let flow = flow.build();
+	// flow.run()
+	// 	.await
+	// 	.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
 	let update: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM flows WHERE name = ?)")
@@ -100,46 +93,43 @@ async fn update_flow(
 		Ok(StatusCode::CREATED)
 	};
 
-	if flow.has_subscriptions() {
-		state
-			.web_sub_subscriber
-			.register_flow(&name, &flow)
-			.await
-			.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
-	}
+	// if flow.has_subscriptions() {
+	// 	state
+	// 		.web_sub_subscriber
+	// 		.register_flow(&name, &flow)
+	// 		.await
+	// 		.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+	// }
 
-	state
-		.flows
-		.lock()
-		.await
-		.insert(name.clone(), FlowHandle::new(Arc::new(flow)));
+	// state
+	// 	.flows
+	// 	.lock()
+	// 	.await
+	// 	.insert(name.clone(), FlowHandle::new(Arc::new(flow)));
 
 	out
 }
 
 async fn delete_flow(
 	Path(name): Path<String>,
-	State(state): State<AppState>,
 	State(pool): State<SqlitePool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	if let Some(flow) = state.flows.lock().await.remove(&name) {
-		let mut conn = pool.acquire().await.map_err(internal_error)?;
-		sqlx::query!("DELETE FROM flows WHERE name = ?", name)
-			.execute(&mut *conn)
-			.await
-			.map_err(internal_error)?;
+	let mut conn = pool.acquire().await.map_err(internal_error)?;
+	sqlx::query!("DELETE FROM flows WHERE name = ?", name)
+		.execute(&mut *conn)
+		.await
+		.map_err(internal_error)?;
 
-		state
-			.web_sub_subscriber
-			.unregister_flow(flow)
-			.await
-			.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
-	}
+	// 	state
+	// 		.web_sub_subscriber
+	// 		.unregister_flow(flow)
+	// 		.await
+	// 		.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 
 	Ok(StatusCode::NO_CONTENT)
 }
 
-pub fn router() -> Router<AppState> {
+pub fn router() -> Router<RSSFlow> {
 	Router::new()
 		// .route("/flow", post(create_flow))
 		.route("/flow", get(get_flows))

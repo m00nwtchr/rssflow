@@ -1,0 +1,22 @@
+[package]
+name = "rssflow-fetch"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+## Common
+proto = { workspace = true, features = ["atom"] }
+
+tonic.workspace = true
+tonic-health.workspace = true
+prost-types.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+tokio.workspace = true
+
+## Node
+reqwest.workspace = true
+url.workspace = true
+atom_syndication.workspace = true# Replace with feed-rs for broader feed compat

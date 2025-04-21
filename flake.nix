@@ -27,20 +27,27 @@
       };
       inherit (pkgs) lib;
 
-      rustToolchainFor = p:
-        p.rust-bin.stable.latest.minimal.override {
-          extensions = ["clippy"];
-        };
-      rustDevToolchainFor = p:
-        (rustToolchainFor p).override {
-          extensions = ["rust-docs" "rust-src" "rust-analyzer"];
-        };
+      rustToolchain = pkgs.rust-bin.stable.latest.minimal.override {
+        extensions = ["clippy"];
+      };
+      rustDevToolchain = rustToolchain.override (prev: {
+        extensions = prev.extensions ++ ["rust-docs" "rust-src" "rust-analyzer"];
+      });
       rustfmt = pkgs.rust-bin.selectLatestNightlyWith (t: t.rustfmt);
 
-      craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchainFor;
-      craneDev = craneLib.overrideToolchain rustDevToolchainFor;
+      craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustToolchain);
+      craneDev = craneLib.overrideToolchain (p: rustDevToolchain);
 
-      src = craneLib.cleanCargoSource self;
+      root = ./.;
+      src = lib.fileset.toSource {
+        inherit root;
+        fileset = lib.fileset.unions [
+          (craneLib.fileset.commonCargoSources ./.)
+          (lib.fileset.fileFilter (file: file.hasExt "proto") ./shared/proto/proto)
+          (lib.fileset.maybeMissing ./migrations)
+          (lib.fileset.maybeMissing ./.sqlx)
+        ];
+      };
 
       rustHostPlatform = pkgs.hostPlatform.rust.rustcTarget;
 
@@ -51,46 +58,90 @@
 
         buildInputs = with pkgs; [] ++ lib.optionals stdenv.isDarwin [];
 
-        nativeBuildInputs = with pkgs; [];
+        nativeBuildInputs = with pkgs; [
+          protobuf
+        ];
       };
 
-      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+      mkCargoArtifacts = craneLib: craneLib.buildDepsOnly commonArgs;
 
-      individualCrateArgs =
+      mkIndividualCrateArgs = craneLib:
         commonArgs
         // {
-          inherit cargoArtifacts;
+          cargoArtifacts = mkCargoArtifacts craneLib;
           inherit (craneLib.crateNameFromCargoToml {inherit src;}) version;
           # NB: we disable tests since we'll run them all via cargo-nextest
           doCheck = false;
         };
 
-      fileSetForCrate = crate:
+      fileSetForCrate = crate: fs:
         lib.fileset.toSource {
-          root = ./.;
-          fileset = lib.fileset.unions [
-            ./Cargo.toml
-            ./Cargo.lock
+          inherit root;
+          fileset = lib.fileset.unions ([
+              ./Cargo.toml
+              ./Cargo.lock
 
-            (craneLib.fileset.commonCargoSources crate)
-            (lib.fileset.maybeMissing ./migrations)
-          ];
+              (craneLib.fileset.commonCargoSources ./shared)
+              (lib.fileset.fileFilter (file: file.hasExt "proto") ./shared/proto/proto)
+              (craneLib.fileset.commonCargoSources ./src)
+
+              (craneLib.fileset.commonCargoSources crate)
+            ]
+            ++ fs);
         };
 
-      rssflow = craneLib.buildPackage (individualCrateArgs
-        // {
-          pname = "rssflow";
-          cargoExtraArgs = "-p rssflow";
-          src = fileSetForCrate ./src;
-        });
-    in {
-      checks = {
-        inherit rssflow;
+      mkPackages = craneLib: {
+        rssflow = craneLib.buildPackage (mkIndividualCrateArgs craneLib
+          // {
+            pname = "rssflow";
+            cargoExtraArgs = "-p rssflow";
 
+            src = fileSetForCrate ./src [
+              (craneLib.fileset.commonCargoSources ./services/dummy)
+              (lib.fileset.maybeMissing ./migrations)
+              (lib.fileset.maybeMissing ./.sqlx)
+            ];
+          });
+
+        rssflow-fetch = craneLib.buildPackage (mkIndividualCrateArgs craneLib
+          // {
+            pname = "rssflow-fetch";
+            cargoExtraArgs = "-p rssflow-fetch";
+
+            src = fileSetForCrate ./services/fetch [
+              (craneLib.fileset.commonCargoSources ./services/websub)
+              (lib.fileset.fileFilter (file: file.hasExt "proto") ./services/websub)
+            ];
+          });
+      };
+
+      packages = mkPackages craneLib;
+
+      dockerImages = {
+        rssflow = pkgs.dockerTools.buildLayeredImage {
+          name = "rssflow";
+          tag = "latest";
+          contents = [packages.rssflow];
+          config = {
+            Cmd = ["${packages.rssflow}/bin/rssflow"];
+          };
+        };
+
+        rssflow-fetch = pkgs.dockerTools.buildLayeredImage {
+          name = "rssflow-fetch";
+          tag = "latest";
+          contents = [packages.rssflow-fetch];
+          config = {
+            Cmd = ["${packages.rssflow-fetch}/bin/rssflow-fetch"];
+          };
+        };
+      };
+
+      mkChecks = craneLib: {
         # Run clippy
         workspace-clippy = craneLib.cargoClippy (commonArgs
           // {
-            inherit cargoArtifacts;
+            cargoArtifacts = mkCargoArtifacts craneLib;
             cargoClippyExtraArgs = "--all-targets -- --deny warnings";
           });
 
@@ -115,25 +166,33 @@
         # if you do not want the tests to run twice
         workspace-nextest = craneLib.cargoNextest (commonArgs
           // {
-            inherit cargoArtifacts;
+            cargoArtifacts = mkCargoArtifacts craneLib;
             partitions = 1;
             partitionType = "count";
             cargoNextestPartitionsExtraArgs = "--no-tests=pass";
           });
       };
-
-      packages.default = rssflow;
+    in {
+      checks = mkChecks craneLib // packages;
+      packages =
+        {
+          default = packages.rssflow;
+          inherit dockerImages;
+        }
+        // packages;
       apps.default = flake-utils.lib.mkApp {
-        drv = rssflow;
+        drv = packages.rssflow;
       };
 
       devShells.default = craneDev.devShell {
-        checks = self.checks.${system};
+        checks = (mkChecks craneDev) // mkPackages craneDev;
 
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = "${pkgs.llvmPackages.clangUseLLVM}/bin/clang";
         CARGO_ENCODED_RUSTFLAGS = "-Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold";
 
-        packages = [];
+        packages = with pkgs; [
+          grpcurl
+        ];
       };
     });
 }

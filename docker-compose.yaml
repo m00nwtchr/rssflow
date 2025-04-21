@@ -1,0 +1,7 @@
+services:
+  rssflow:
+    image: localhost/rssflow:latest
+    ports:
+      - 3434:3434
+  fetch:
+    image: localhost/rssflow-fetch:latest

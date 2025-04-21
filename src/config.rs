@@ -6,17 +6,19 @@ use url::Url;
 
 #[derive(Config)]
 pub struct AppConfig {
-	#[config(env = "PORT", default = 3434)]
+	#[config(env = "HTTP_PORT", default = 3434)]
 	pub port: u16,
+
+	#[config(env = "GRPC_PORT", default = 50051)]
+	pub grpc_port: u16,
 
 	#[config(env = "LISTEN_ADDRESS", default = "::")]
 	pub address: IpAddr,
 
 	#[config(env = "DATABASE_FILE", default = "rssflow.db")]
 	pub database_file: String,
-
-	#[config(env = "PUBLIC_URL")]
-	pub public_url: Option<Url>,
+	// #[config(env = "PUBLIC_URL")]
+	// pub public_url: Option<Url>,
 }
 
 pub static CONFIG: OnceCell<AppConfig> = OnceCell::const_new();

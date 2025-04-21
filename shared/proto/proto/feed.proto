@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package rssflow.feed;
+
+import "google/protobuf/timestamp.proto";
+
+message Feed {
+  string title = 1;
+  string id = 2;
+  google.protobuf.Timestamp updated = 3;
+  repeated Entry entries = 4;
+}
+
+message Entry {
+  string title = 1;
+  string id = 2;
+  google.protobuf.Timestamp updated = 3;
+  Text summary = 4;
+  Content content = 5;
+}
+
+message Content {
+  string value = 1;
+  string lang = 2;
+  string content_type = 3;
+}
+
+message Text {
+  string value = 1;
+  TextType type = 2;
+}
+
+enum TextType {
+  TEXT = 0;
+  HTML = 1;
+  XHTML = 2;
+}
+
+message StringValue {
+  string value = 1;
+}
