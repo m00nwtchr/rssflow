@@ -90,6 +90,15 @@
             ++ fs);
         };
 
+      mkPackage = craneLib: name:
+        craneLib.buildPackage (mkIndividualCrateArgs craneLib
+          // {
+            pname = "rssflow-${name}";
+            cargoExtraArgs = "-p rssflow-${name}";
+
+            src = fileSetForCrate ./services/${name} [];
+          });
+
       mkPackages = craneLib: {
         rssflow = craneLib.buildPackage (mkIndividualCrateArgs craneLib
           // {
@@ -103,53 +112,27 @@
             ];
           });
 
-        rssflow-websub = craneLib.buildPackage (mkIndividualCrateArgs craneLib
-          // {
-            pname = "rssflow-websub";
-            cargoExtraArgs = "-p rssflow-websub";
-
-            src = fileSetForCrate ./services/websub [];
-          });
-
-        rssflow-fetch = craneLib.buildPackage (mkIndividualCrateArgs craneLib
-          // {
-            pname = "rssflow-fetch";
-            cargoExtraArgs = "-p rssflow-fetch";
-
-            src = fileSetForCrate ./services/fetch [];
-          });
+        rssflow-websub = mkPackage craneLib "websub";
+        rssflow-fetch = mkPackage craneLib "fetch";
+        rssflow-filter = mkPackage craneLib "filter";
+        rssflow-replace = mkPackage craneLib "replace";
+        rssflow-retrieve = mkPackage craneLib "retrieve";
+        rssflow-sanitise = mkPackage craneLib "sanitise";
       };
 
       packages = mkPackages craneLib;
 
-      dockerImages = {
-        rssflow = pkgs.dockerTools.buildLayeredImage {
-          name = "rssflow";
+      mkImage = name: pkg:
+        pkgs.dockerTools.buildLayeredImage {
+          name = name;
           tag = "latest";
-          contents = [packages.rssflow];
+          contents = [pkg];
           config = {
-            Cmd = ["${packages.rssflow}/bin/rssflow"];
+            Cmd = ["${pkg}/bin/${name}"];
           };
         };
 
-        rssflow-websub = pkgs.dockerTools.buildLayeredImage {
-          name = "rssflow-websub";
-          tag = "latest";
-          contents = [packages.rssflow-websub];
-          config = {
-            Cmd = ["${packages.rssflow-websub}/bin/rssflow-websub"];
-          };
-        };
-
-        rssflow-fetch = pkgs.dockerTools.buildLayeredImage {
-          name = "rssflow-fetch";
-          tag = "latest";
-          contents = [packages.rssflow-fetch];
-          config = {
-            Cmd = ["${packages.rssflow-fetch}/bin/rssflow-fetch"];
-          };
-        };
-      };
+      dockerImages = lib.mapAttrs mkImage packages;
 
       mkChecks = craneLib: {
         # Run clippy
@@ -191,7 +174,16 @@
       packages =
         {
           default = packages.rssflow;
-          inherit dockerImages;
+          dockerImages =
+            {
+              default = pkgs.linkFarm "docker-images" (pkgs.lib.mapAttrsToList
+                (name: image: {
+                  name = name;
+                  path = image;
+                })
+                dockerImages);
+            }
+            // dockerImages;
         }
         // packages;
       apps.default = flake-utils.lib.mkApp {

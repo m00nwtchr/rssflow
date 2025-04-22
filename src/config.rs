@@ -2,7 +2,6 @@ use std::net::IpAddr;
 
 use confique::Config;
 use tokio::sync::OnceCell;
-use url::Url;
 
 #[derive(Config)]
 pub struct AppConfig {

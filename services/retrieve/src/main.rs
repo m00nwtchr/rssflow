@@ -13,7 +13,7 @@ use tracing::info;
 
 mod service;
 
-struct FetchNode {
+struct RetrieveNode {
 	conn: redis::aio::MultiplexedConnection,
 }
 
@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	tracing_subscriber::fmt::init();
 	let (health_reporter, health_service) = tonic_health::server::health_reporter();
 	health_reporter
-		.set_serving::<NodeServiceServer<FetchNode>>()
+		.set_serving::<NodeServiceServer<RetrieveNode>>()
 		.await;
 
 	let port = std::env::var("GRPC_PORT")
@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.unwrap_or("http://rssflow:50051".to_string());
 	let service_url = std::env::var("SERVICE_URL")
 		.ok()
-		.unwrap_or(format!("http://fetch:{port}"));
+		.unwrap_or(format!("http://retrieve:{port}"));
 
 	let ip = "::".parse().unwrap();
 	let addr = SocketAddr::new(ip, port);
@@ -47,9 +47,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	)?;
 	let conn = redis.get_multiplexed_async_connection().await?;
 
-	let node = FetchNode { conn };
+	let node = RetrieveNode { conn };
 
-	info!("Fetch service at: {}", addr);
+	info!("Retrieve service at: {}", addr);
 
 	let server = add_reflection_service(
 		Server::builder(),
@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				.register(RegisterRequest {
 					node: Some(Node {
 						address: service_url.clone(),
-						node_name: "Fetch".into(),
+						node_name: "Retrieve".into(),
 					}),
 				})
 				.await?;

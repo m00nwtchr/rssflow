@@ -1,7 +1,8 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
+use prost_types::Struct;
+use proto::node::Field;
 use serde::{Deserialize, Serialize};
-use tonic::codegen::tokio_stream::StreamExt;
 
 pub mod node;
 
@@ -10,6 +11,7 @@ pub mod node;
 pub enum Value {
 	Bool(bool),
 	Number(u32),
+	Field(Field),
 	String(String),
 }
 
@@ -18,6 +20,7 @@ impl From<Value> for prost_types::Value {
 		match value {
 			Value::Bool(b) => prost_types::Value::from(b),
 			Value::Number(n) => prost_types::Value::from(n),
+			Value::Field(f) => prost_types::Value::from(f as i32),
 			Value::String(s) => prost_types::Value::from(s),
 		}
 	}
@@ -35,6 +38,16 @@ pub struct NodeOptions {
 	pub r#type: String,
 	#[serde(flatten)]
 	pub options: BTreeMap<String, Value>,
+}
+
+impl NodeOptions {
+	pub fn options(&self) -> Option<Struct> {
+		if self.options.is_empty() {
+			None
+		} else {
+			Some(to_struct(self.options.clone()))
+		}
+	}
 }
 
 #[derive(Serialize, Deserialize)]

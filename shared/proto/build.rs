@@ -17,7 +17,11 @@ fn main() {
 		.collect();
 
 	let mut builder = tonic_build::configure()
-		.type_attribute(".rssflow.websub.WebSub", "#[derive(Eq, Hash)]");
+		.type_attribute(".rssflow.websub.WebSub", "#[derive(Eq, Hash)]")
+		.type_attribute(
+			".rssflow.node.Field",
+			"#[derive(::serde::Serialize, ::serde::Deserialize)]",
+		);
 
 	#[cfg(debug_assertions)]
 	{

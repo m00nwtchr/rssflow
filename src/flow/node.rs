@@ -1,7 +1,5 @@
 #![allow(clippy::module_name_repetitions)]
 
-use serde::{Deserialize, Serialize};
-
 // #[async_trait]
 // #[enum_dispatch]
 // pub trait NodeTrait: Sync + Send {
@@ -209,11 +207,11 @@ use serde::{Deserialize, Serialize};
 // 	Some(data)
 // }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Field {
-	Author,
-	Summary,
-	Content,
-	Title,
-	// Uri
-}
+// #[derive(Serialize, Deserialize, Debug)]
+// pub enum Field {
+// 	Author,
+// 	Summary,
+// 	Content,
+// 	Title,
+// 	// Uri
+// }

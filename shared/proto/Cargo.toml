@@ -1,10 +1,17 @@
 [package]
 name = "proto"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [features]
 atom = ["dep:atom_syndication"]
+cache = ["dep:redis", "dep:serde_json"]
 
 [dependencies]
 tonic.workspace = true
@@ -14,10 +21,16 @@ prost-types.workspace = true
 atom_syndication = { workspace = true, optional = true }
 chrono.workspace = true
 
+tokio.workspace = true
 anyhow.workspace = true
 
 #[target.'cfg(debug_assertions)'.dependencies]
 tonic-reflection = "0.13"
+
+serde = { version = "1", features = ["derive"] }
+
+redis = { workspace = true, optional = true }
+serde_json = { version = "1", optional = true }
 
 [build-dependencies]
 tonic-build.workspace = true

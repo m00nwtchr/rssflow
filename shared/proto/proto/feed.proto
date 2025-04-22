@@ -8,15 +8,18 @@ message Feed {
   string title = 1;
   string id = 2;
   google.protobuf.Timestamp updated = 3;
-  repeated Entry entries = 4;
+  repeated Person authors = 4;
+  repeated Entry entries = 5;
 }
 
 message Entry {
   string title = 1;
   string id = 2;
   google.protobuf.Timestamp updated = 3;
-  Text summary = 4;
-  Content content = 5;
+  repeated Person authors = 4;
+  repeated Link links = 5;
+  Text summary = 6;
+  Content content = 7;
 }
 
 message Content {
@@ -34,6 +37,17 @@ enum TextType {
   TEXT = 0;
   HTML = 1;
   XHTML = 2;
+}
+
+message Link {
+  string href = 1;
+  string rel = 2;
+}
+
+message Person {
+  string name = 1;
+  string email = 2;
+  string uri = 3;
 }
 
 message StringValue {

@@ -13,8 +13,22 @@ use tracing::info;
 
 mod service;
 
-struct FetchNode {
-	conn: redis::aio::MultiplexedConnection,
+pub fn default_ammonia() -> ammonia::Builder<'static> {
+	let mut ammonia = ammonia::Builder::new();
+	ammonia.add_generic_attributes(["style"]);
+	ammonia
+}
+
+struct SanitiseNode {
+	ammonia: ammonia::Builder<'static>,
+}
+
+impl Default for SanitiseNode {
+	fn default() -> Self {
+		Self {
+			ammonia: default_ammonia(),
+		}
+	}
 }
 
 #[tokio::main]
@@ -22,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	tracing_subscriber::fmt::init();
 	let (health_reporter, health_service) = tonic_health::server::health_reporter();
 	health_reporter
-		.set_serving::<NodeServiceServer<FetchNode>>()
+		.set_serving::<NodeServiceServer<SanitiseNode>>()
 		.await;
 
 	let port = std::env::var("GRPC_PORT")
@@ -35,28 +49,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.unwrap_or("http://rssflow:50051".to_string());
 	let service_url = std::env::var("SERVICE_URL")
 		.ok()
-		.unwrap_or(format!("http://fetch:{port}"));
+		.unwrap_or(format!("http://sanitise:{port}"));
 
 	let ip = "::".parse().unwrap();
 	let addr = SocketAddr::new(ip, port);
 
-	let redis = redis::Client::open(
-		std::env::var("REDIS_URL")
-			.ok()
-			.unwrap_or("redis://valkey/".to_string()),
-	)?;
-	let conn = redis.get_multiplexed_async_connection().await?;
-
-	let node = FetchNode { conn };
-
-	info!("Fetch service at: {}", addr);
+	info!("Sanitise service at: {}", addr);
 
 	let server = add_reflection_service(
 		Server::builder(),
 		proto::node::node_service_server::SERVICE_NAME,
 	)?
-		.add_service(health_service)
-		.add_service(NodeServiceServer::new(node));
+	.add_service(health_service)
+	.add_service(NodeServiceServer::new(SanitiseNode::default()));
 
 	let report = retry_async(
 		|| async {
@@ -66,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				.register(RegisterRequest {
 					node: Some(Node {
 						address: service_url.clone(),
-						node_name: "Fetch".into(),
+						node_name: "Sanitise".into(),
 					}),
 				})
 				.await?;

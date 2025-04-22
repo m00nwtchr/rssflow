@@ -73,7 +73,21 @@ async fn update_flow(
 		.await
 		.map_err(internal_error)?;
 
-	let out = if update {
+	// if flow.has_subscriptions() {
+	// 	state
+	// 		.web_sub_subscriber
+	// 		.register_flow(&name, &flow)
+	// 		.await
+	// 		.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+	// }
+
+	// state
+	// 	.flows
+	// 	.lock()
+	// 	.await
+	// 	.insert(name.clone(), FlowHandle::new(Arc::new(flow)));
+
+	if update {
 		sqlx::query!("UPDATE flows SET content = ? WHERE name = ?", json, name)
 			.execute(&mut *conn)
 			.await
@@ -91,23 +105,7 @@ async fn update_flow(
 		.map_err(internal_error)?;
 
 		Ok(StatusCode::CREATED)
-	};
-
-	// if flow.has_subscriptions() {
-	// 	state
-	// 		.web_sub_subscriber
-	// 		.register_flow(&name, &flow)
-	// 		.await
-	// 		.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
-	// }
-
-	// state
-	// 	.flows
-	// 	.lock()
-	// 	.await
-	// 	.insert(name.clone(), FlowHandle::new(Arc::new(flow)));
-
-	out
+	}
 }
 
 async fn delete_flow(

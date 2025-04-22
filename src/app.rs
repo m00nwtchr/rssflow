@@ -1,14 +1,8 @@
-use std::{ops::Deref, sync::Arc};
-
-use axum::{Router, extract::FromRef, http::StatusCode, routing::get};
-use sqlx::{
-	SqlitePool,
-	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
-};
+use axum::{Router, http::StatusCode, routing::get};
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
-use crate::{RSSFlow, RSSFlowInner, config::config, route};
+use crate::{RSSFlow, route};
 
 // #[derive(Clone)]
 // pub struct FlowHandle(Arc<Flow>, broadcast::Sender<Data>);

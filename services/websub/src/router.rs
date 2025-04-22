@@ -1,5 +1,3 @@
-use std::{collections::BTreeMap, str::FromStr};
-
 use axum::{
 	Router,
 	body::Bytes,
@@ -8,17 +6,14 @@ use axum::{
 	response::IntoResponse,
 	routing::{get, post},
 };
-use proto::{
-	node::ProcessRequest,
-	websub::{WebSub, WebSubEvent},
-};
+use proto::{node::ProcessRequest, websub::WebSubEvent};
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
 use crate::{
 	Subscription, WebSubSVC,
-	ws::{Verification, X_HUB_SIGNATURE, XHubSignature},
+	ws::{Verification, X_HUB_SIGNATURE},
 };
 
 async fn send_to_listeners(sub: &Subscription, body: Bytes) {
@@ -33,14 +28,10 @@ async fn send_to_listeners(sub: &Subscription, body: Bytes) {
 	let payload: prost_types::Any = WebSubEvent {
 		body: body.to_vec(),
 	}
-		.into();
+	.into();
 
 	for node in &sub.nodes {
-		let Ok(mut client) = node.client().await else {
-			continue;
-		};
-
-		let _ = client
+		let _ = node
 			.process(ProcessRequest {
 				payload: Some(payload.clone()),
 				options: Some(options.clone()),

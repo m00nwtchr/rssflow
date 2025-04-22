@@ -1,5 +1,5 @@
 [package]
-name = "rssflow-fetch"
+name = "rssflow-filter"
 version.workspace = true
 edition.workspace = true
 description.workspace = true
@@ -11,7 +11,7 @@ repository.workspace = true
 
 [dependencies]
 ## Common
-proto = { workspace = true, features = ["atom", "cache"] }
+proto.workspace = true
 
 tonic.workspace = true
 tonic-health.workspace = true
@@ -23,8 +23,4 @@ tracing-subscriber.workspace = true
 tokio.workspace = true
 
 ## Node
-reqwest.workspace = true
-url.workspace = true
-atom_syndication = { workspace = true, features = ["with-serde"] }# Replace with feed-rs for broader feed compat
-
-redis.workspace = true
+regex = "1.11.1"

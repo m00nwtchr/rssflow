@@ -1,17 +1,15 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use axum::{
-	Json, Router,
+	Router,
 	extract::{Path, State},
 	http::StatusCode,
-	response::{
-		IntoResponse, Sse,
-		sse::{Event, KeepAlive},
-	},
+	response::IntoResponse,
 	routing::get,
 };
-use proto::{feed::Feed, node::ProcessRequest, registry::Node};
+use proto::{node::ProcessRequest, registry::Node};
 use sqlx::SqlitePool;
+use tonic::{Request, Status};
 use tracing::info;
 
 use crate::{
@@ -38,27 +36,19 @@ async fn run(
 	let mut payload = None;
 
 	for node in flow.nodes {
-		let service = known_nodes
-			.get(&node.r#type)
-			.ok_or((StatusCode::UNPROCESSABLE_ENTITY, "".to_string()))?;
-		let mut client = service
-			.client()
-			.await
-			.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+		let service = known_nodes.get(&node.r#type).ok_or((
+			StatusCode::UNPROCESSABLE_ENTITY,
+			format!("No such node: {}", node.r#type),
+		))?;
 
 		info!("Sending request to {} node", node.r#type);
-
-		let res = client
+		let res = service
 			.process(ProcessRequest {
 				payload,
-				options: if !node.options.is_empty() {
-					Some(to_struct(node.options.clone()))
-				} else {
-					None
-				},
+				options: node.options(),
 			})
 			.await
-			.map_err(internal_error)?;
+			.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 		payload = res.into_inner().payload;
 	}
 

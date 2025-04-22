@@ -9,3 +9,16 @@ services:
       - 3435:3435
   fetch:
     image: localhost/rssflow-fetch:latest
+  filter:
+    image: localhost/rssflow-filter:latest
+  replace:
+    image: localhost/rssflow-replace:latest
+  retrieve:
+    image: localhost/rssflow-retrieve:latest
+  sanitise:
+    image: localhost/rssflow-sanitise:latest
+
+  valkey:
+    image: valkey/valkey:latest
+    ports:
+      - 6379:6379

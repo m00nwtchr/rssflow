@@ -2,17 +2,15 @@
 #![allow(clippy::module_name_repetitions)]
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	net::SocketAddr,
 	ops::Deref,
-	str::FromStr,
 	sync::{Arc, Mutex},
 };
 
 use axum::extract::FromRef;
 use proto::{
 	add_reflection_service,
-	node::{ProcessRequest, node_service_client::NodeServiceClient},
 	registry::{
 		Empty, GetNodeRequest, GetNodeResponse, HeartbeatRequest, ListNodesResponse, Node,
 		RegisterRequest,
@@ -24,11 +22,7 @@ use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use tokio::net::TcpListener;
-use tonic::{
-	Request, Response, Status,
-	codegen::http,
-	transport::{Endpoint, Server},
-};
+use tonic::{Request, Response, Status, transport::Server};
 use tonic_health::pb::{
 	HealthCheckRequest, health_check_response::ServingStatus, health_client::HealthClient,
 };
@@ -99,7 +93,7 @@ impl NodeRegistry for RSSFlow {
 					.lock()
 					.unwrap()
 					.insert(node.node_name.clone(), node);
-				Ok(Response::new(Default::default()))
+				Ok(Response::new(Empty::default()))
 			} else {
 				Err(Status::unavailable(""))
 			}
@@ -120,11 +114,11 @@ impl NodeRegistry for RSSFlow {
 		request: Request<GetNodeRequest>,
 	) -> Result<Response<GetNodeResponse>, Status> {
 		let name = request.into_inner().name;
-		if !name.is_empty() {
+		if name.is_empty() {
+			Err(Status::invalid_argument("Missing name argument"))
+		} else {
 			let node = self.nodes.lock().unwrap().get(&name).cloned();
 			Ok(Response::new(GetNodeResponse { node }))
-		} else {
-			Err(Status::invalid_argument("Missing name argument"))
 		}
 	}
 

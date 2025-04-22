@@ -1,3 +1,6 @@
+use std::{fmt::Debug, time::Duration};
+
+use tokio::time::sleep;
 #[warn(clippy::pedantic)]
 use tonic::transport::{Server, server::Router};
 
@@ -8,9 +11,12 @@ pub mod node {
 pub mod registry {
 	use std::str::FromStr;
 
-	use tonic::transport::{Channel, Endpoint};
+	use tonic::{
+		Request, Response,
+		transport::{Channel, Endpoint},
+	};
 
-	use crate::node::node_service_client::NodeServiceClient;
+	use crate::node::{ProcessRequest, ProcessResponse, node_service_client::NodeServiceClient};
 
 	tonic::include_proto!("rssflow.registry");
 
@@ -21,6 +27,15 @@ pub mod registry {
 
 		pub async fn client(&self) -> anyhow::Result<NodeServiceClient<Channel>> {
 			Ok(NodeServiceClient::new(self.endpoint()?.connect().await?))
+		}
+
+		pub async fn process(
+			&self,
+			req: ProcessRequest,
+		) -> anyhow::Result<Response<ProcessResponse>> {
+			let mut req = Request::new(req);
+			req.metadata_mut().insert("x-node", self.node_name.parse()?);
+			Ok(self.client().await?.process(req).await?)
 		}
 	}
 }
@@ -77,6 +92,8 @@ pub mod websub {
 		}
 	}
 }
+#[cfg(feature = "cache")]
+pub mod cache;
 
 #[cfg(debug_assertions)]
 const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("proto_descriptor");
@@ -139,4 +156,34 @@ macro_rules! impl_name {
 			}
 		}
 	};
+}
+
+/// Retry an async operation up to `retries` times with a fixed `delay` between attempts.
+///
+/// - `operation`: a closure returning a `Future` that yields `Result<T, E>`.
+/// - `retries`: how many times to retry on failure.
+/// - `delay`: how long to wait between retries.
+///
+/// Returns `Ok(T)` on the first successful attempt, or the last `Err(E)` if all retries fail.
+pub async fn retry_async<Op, Fut, T, E>(
+	mut operation: Op,
+	mut retries: usize,
+	delay: Duration,
+) -> Result<T, E>
+where
+	E: Debug,
+	Op: FnMut() -> Fut,
+	Fut: Future<Output = Result<T, E>>,
+{
+	loop {
+		match operation().await {
+			Ok(v) => return Ok(v),
+			Err(err) if retries > 0 => {
+				retries -= 1;
+				eprintln!("Operation failed: {:?}. Retries left: {}", err, retries);
+				sleep(delay).await;
+			}
+			Err(err) => return Err(err),
+		}
+	}
 }
