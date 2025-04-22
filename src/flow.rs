@@ -4,8 +4,6 @@ use prost_types::Struct;
 use proto::node::Field;
 use serde::{Deserialize, Serialize};
 
-pub mod node;
-
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum Value {
@@ -26,8 +24,8 @@ impl From<Value> for prost_types::Value {
 	}
 }
 
-pub fn to_struct(map: BTreeMap<String, Value>) -> prost_types::Struct {
-	prost_types::Struct {
+pub fn to_struct(map: BTreeMap<String, Value>) -> Struct {
+	Struct {
 		fields: map.into_iter().map(|(k, v)| (k, v.into())).collect(),
 	}
 }
@@ -55,57 +53,9 @@ pub struct Flow {
 	pub nodes: Vec<NodeOptions>,
 }
 
-//
-// pub struct Flow {
-// 	nodes: Mutex<Vec<Node>>,
-// }
-//
-// impl Flow {
-// #[async_trait]
-// impl NodeTrait for Flow {
-// 	async fn run(&self) -> anyhow::Result<()> {
-// 		// TODO: Run nodes in order based on input/output dependencies, run adjacent nodes concurrently.
-//
-// 		let mut subscriptions: Option<Vec<WebSub>> = if self.subscriptions.lock().is_empty() {
-// 			Some(Vec::new())
-// 		} else {
-// 			None
-// 		};
-//
-// 		let nodes = self.nodes.lock().await;
-// 		for node in nodes.iter() {
-// 			if node.is_dirty() {
-// 				tracing::info!("Running node: {node}");
-// 				node.run().await?;
-//
-// 				let inputs = node.inputs();
-// 				for io in inputs.iter().filter(|i| i.is_dirty()) {
-// 					io.clear();
-// 				}
-//
-// 				if let Some(subscriptions) = &mut subscriptions {
-// 					if let Some(sub) = node.web_sub() {
-// 						subscriptions.push(sub);
-// 					}
-// 				}
-// 			}
-// 		}
-//
-// 		if let Some(subscriptions) = subscriptions {
-// 			*self.subscriptions.lock() = subscriptions;
-// 		}
-//
-// 		Ok(())
-// 	}
-//
-
-// }
-
 #[derive(Serialize, Deserialize, Default)]
 pub struct FlowBuilder {
-	// nodes: Vec<Node>,
-	// #[serde(default, skip_serializing_if = "Vec::is_empty")]
-	// connections: Vec<Connection>,
+	// nodes: Vec<NodeOptions>,
 }
 //
 // impl FlowBuilder {
@@ -185,26 +135,5 @@ pub struct FlowBuilder {
 // 			outputs,
 // 			subscriptions: parking_lot::Mutex::default(),
 // 		}
-// 	}
-// }
-
-// fn get_value<'a>(field: &Field, item: &'a Entry) -> Option<&'a String> {
-// 	match field {
-// 		Field::Author => item.authors.first().map(|p| &p.name),
-// 		Field::Summary => item.summary.as_ref().map(|t| &t.value),
-// 		Field::Content => item.content.as_ref().and_then(|c| c.value.as_ref()),
-// 		Field::Title => Some(&item.title.value),
-// 	}
-// }
-//
-// fn set_value(field: &Field, item: &mut Entry, value: String) {
-// 	match field {
-// 		Field::Summary => {
-// 			item.summary.as_mut().unwrap().value = value;
-// 		}
-// 		Field::Content => {
-// 			item.content.as_mut().unwrap().value = Some(value);
-// 		}
-// 		_ => unimplemented!(),
 // 	}
 // }
