@@ -25,6 +25,9 @@ repository = "https://github.com/m00nwtchr/rssflow"
 
 
 [workspace.dependencies]
+rssflow-proto = { path = "shared/proto" }
+rssflow-service = { path = "shared/service" }
+
 # Common
 reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls", "json"] }
 url = "*"
@@ -44,8 +47,6 @@ anyhow = "1"
 futures = "0.3"
 
 ## Service Common Deps
-proto = { path = "shared/proto" }
-
 tonic = "*"
 tonic-health = "*"
 
@@ -72,16 +73,17 @@ opt-level = 3
 #html = ["dep:scraper"]
 
 [dependencies]
-proto = { workspace = true, features = ["atom"] }
+rssflow-service.workspace = true
 
 tonic.workspace = true
 tonic-health.workspace = true
 prost-types.workspace = true
 
 tracing.workspace = true
-tracing-subscriber.workspace = true
-
 tokio.workspace = true
+
+##
+rssflow-proto = { workspace = true, features = ["atom"] }
 
 ## HTTP
 axum.workspace = true

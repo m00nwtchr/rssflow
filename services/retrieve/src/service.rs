@@ -2,17 +2,21 @@ use std::cmp::min;
 
 use base64::{Engine, engine::general_purpose};
 use futures::{StreamExt, stream};
-use proto::{
-	feed::{Content, Entry, Feed},
-	node::{ProcessRequest, ProcessResponse, node_service_server::NodeService},
-};
 use redis::{AsyncCommands, aio::MultiplexedConnection};
+use rssflow_service::{
+	check_node,
+	proto::{
+		feed::{Content, Entry, Feed},
+		node::{Field, ProcessRequest, ProcessResponse, node_service_server::NodeService},
+	},
+	try_from_request,
+};
 use scraper::{Html, Selector, selector::ToCss};
 use sha2::{Digest, Sha256};
 use tonic::{Request, Response, Status};
 use tracing::instrument;
 
-use crate::RetrieveNode;
+use crate::{RetrieveNode, SERVICE_NAME};
 
 fn make_cache_key(url: &str, selector: &str) -> String {
 	let mut hasher = Sha256::new();
@@ -65,35 +69,16 @@ impl NodeService for RetrieveNode {
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		if let Some(node) = request.metadata().get("x-node") {
-			if node != "Retrieve" {
-				return Err(Status::not_found(format!(
-					"node {} not found",
-					node.to_str().unwrap()
-				)));
-			}
-		}
+		check_node(&request, SERVICE_NAME)?;
 		let request = request.into_inner();
 
-		let Some(payload) = request.payload else {
-			return Err(Status::invalid_argument("payload missing"));
-		};
-		let mut feed =
-			Feed::try_from(payload).map_err(|e| Status::invalid_argument(e.to_string()))?;
+		let mut feed: Feed = try_from_request(&request)?;
 
-		let selector = match request
-			.options
-			.as_ref()
-			.and_then(|o| o.fields.get("selector"))
-		{
-			Some(v) => match &v.kind {
-				Some(prost_types::value::Kind::StringValue(s)) => {
-					Selector::parse(s).map_err(|e| Status::invalid_argument(e.to_string()))?
-				}
-				_ => Err(Status::invalid_argument("wrong type for selector"))?,
-			},
-			None => Err(Status::invalid_argument("selector option is missing"))?,
-		};
+		let selector = request
+			.get_option_required("selector")
+			.and_then(|s: &String| {
+				Selector::parse(s).map_err(|e| Status::invalid_argument(e.to_string()))
+			})?;
 
 		let n = min(feed.entries.len(), 6); // Avoiding too high values to prevent spamming the target site.
 		let items: Vec<anyhow::Result<Entry>> = stream::iter(feed.entries.into_iter())

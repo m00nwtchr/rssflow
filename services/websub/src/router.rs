@@ -6,7 +6,7 @@ use axum::{
 	response::IntoResponse,
 	routing::{get, post},
 };
-use proto::{node::ProcessRequest, websub::WebSubEvent};
+use rssflow_service::proto::{node::ProcessRequest, websub::WebSubEvent};
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;

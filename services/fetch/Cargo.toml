@@ -10,19 +10,15 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-## Common
-proto = { workspace = true, features = ["atom", "cache"] }
+rssflow-service.workspace = true
 
 tonic.workspace = true
-tonic-health.workspace = true
-prost-types.workspace = true
-
 tracing.workspace = true
-tracing-subscriber.workspace = true
-
 tokio.workspace = true
 
 ## Node
+rssflow-proto = { workspace = true, features = ["atom", "cache"] }
+
 reqwest.workspace = true
 url.workspace = true
 atom_syndication = { workspace = true, features = ["with-serde"] }# Replace with feed-rs for broader feed compat

@@ -1,5 +1,5 @@
 [package]
-name = "proto"
+name = "rssflow-proto"
 version.workspace = true
 edition.workspace = true
 description.workspace = true
@@ -21,11 +21,7 @@ prost-types.workspace = true
 atom_syndication = { workspace = true, optional = true }
 chrono.workspace = true
 
-tokio.workspace = true
 anyhow.workspace = true
-
-#[target.'cfg(debug_assertions)'.dependencies]
-tonic-reflection = "0.13"
 
 serde = { version = "1", features = ["derive"] }
 

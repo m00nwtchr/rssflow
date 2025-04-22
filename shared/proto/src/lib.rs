@@ -1,12 +1,66 @@
-use std::{fmt::Debug, time::Duration};
-
-use tokio::time::sleep;
-#[warn(clippy::pedantic)]
-use tonic::transport::{Server, server::Router};
+#![warn(clippy::pedantic)]
 
 pub mod feed;
 pub mod node {
+	use tonic::Status;
+
+	use crate::node::tfv::TryFromValue;
+
 	tonic::include_proto!("rssflow.node");
+
+	impl ProcessRequest {
+		pub fn get_option<'a, T: 'a + TryFromValue<'a>>(
+			&'a self,
+			key: &str,
+		) -> Option<Result<T, Status>> {
+			self.options
+				.as_ref()
+				.and_then(|o| o.fields.get(key))
+				.map(T::try_from_value)
+				.map(|r| {
+					r.map_err(|_| Status::invalid_argument(format!("wrong type for {key} option")))
+				})
+		}
+
+		pub fn get_option_required<'a, T: 'a + TryFromValue<'a>>(
+			&'a self,
+			key: &str,
+		) -> Result<T, Status> {
+			match self.get_option(key) {
+				Some(v) => Ok(v?),
+				None => Err(Status::invalid_argument(format!("{key} option is missing")))?,
+			}
+		}
+	}
+
+	pub(crate) mod tfv {
+		use anyhow::anyhow;
+		use prost_types::{ListValue, Struct};
+
+		pub trait TryFromValue<'a>: Sized {
+			fn try_from_value(v: &'a prost_types::Value) -> anyhow::Result<Self>;
+		}
+
+		macro_rules! impl_try_from_value {
+			($ty:ty, $kind_variant:ident) => {
+				impl<'a> TryFromValue<'a> for &'a $ty {
+					fn try_from_value(v: &'a prost_types::Value) -> anyhow::Result<Self> {
+						if let Some(prost_types::value::Kind::$kind_variant(inner)) = &v.kind {
+							Ok(inner)
+						} else {
+							Err(anyhow!("wrong type"))
+						}
+					}
+				}
+			};
+		}
+
+		impl_try_from_value!(f64, NumberValue);
+		impl_try_from_value!(String, StringValue);
+		impl_try_from_value!(bool, BoolValue);
+		impl_try_from_value!(Struct, StructValue);
+		impl_try_from_value!(ListValue, ListValue);
+	}
 }
 pub mod registry {
 	use std::str::FromStr;
@@ -96,22 +150,7 @@ pub mod websub {
 pub mod cache;
 
 #[cfg(debug_assertions)]
-const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("proto_descriptor");
-
-#[cfg(debug_assertions)]
-pub fn add_reflection_service(mut s: Server, name: impl Into<String>) -> anyhow::Result<Router> {
-	let reflection = tonic_reflection::server::Builder::configure()
-		.register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
-		.with_service_name(name)
-		.build_v1()?;
-
-	Ok(s.add_service(reflection))
-}
-
-#[cfg(not(debug_assertions))]
-pub fn add_reflection_service(s: Server, _name: impl Into<String>) -> anyhow::Result<Server> {
-	Ok(s)
-}
+pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("proto_descriptor");
 
 #[macro_export]
 macro_rules! impl_name {
@@ -156,34 +195,4 @@ macro_rules! impl_name {
 			}
 		}
 	};
-}
-
-/// Retry an async operation up to `retries` times with a fixed `delay` between attempts.
-///
-/// - `operation`: a closure returning a `Future` that yields `Result<T, E>`.
-/// - `retries`: how many times to retry on failure.
-/// - `delay`: how long to wait between retries.
-///
-/// Returns `Ok(T)` on the first successful attempt, or the last `Err(E)` if all retries fail.
-pub async fn retry_async<Op, Fut, T, E>(
-	mut operation: Op,
-	mut retries: usize,
-	delay: Duration,
-) -> Result<T, E>
-where
-	E: Debug,
-	Op: FnMut() -> Fut,
-	Fut: Future<Output = Result<T, E>>,
-{
-	loop {
-		match operation().await {
-			Ok(v) => return Ok(v),
-			Err(err) if retries > 0 => {
-				retries -= 1;
-				eprintln!("Operation failed: {:?}. Retries left: {}", err, retries);
-				sleep(delay).await;
-			}
-			Err(err) => return Err(err),
-		}
-	}
 }

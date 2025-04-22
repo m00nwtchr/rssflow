@@ -1,6 +1,6 @@
 use std::array::IntoIter;
 
-use proto::websub::{
+use rssflow_service::proto::websub::{
 	SubscribeRequest, SubscribeResponse, WebSubEvent, WebSubRequest,
 	web_sub_service_server::WebSubService,
 };

@@ -7,14 +7,13 @@ use axum::{
 	response::IntoResponse,
 	routing::get,
 };
-use proto::{node::ProcessRequest, registry::Node};
+use rssflow_service::proto::{node::ProcessRequest, registry::Node};
 use sqlx::SqlitePool;
-use tonic::{Request, Status};
 use tracing::info;
 
 use crate::{
 	RSSFlow,
-	flow::{Flow, to_struct},
+	flow::Flow,
 	route::{Atom, internal_error},
 };
 
@@ -53,8 +52,8 @@ async fn run(
 	}
 
 	if let Some(payload) = payload {
-		let feed: proto::feed::Feed =
-			proto::feed::Feed::try_from(payload).map_err(internal_error)?;
+		let feed: rssflow_service::proto::feed::Feed =
+			rssflow_service::proto::feed::Feed::try_from(payload).map_err(internal_error)?;
 		Ok(Atom(feed.into()).into_response())
 	} else {
 		Ok(().into_response())

@@ -10,21 +10,14 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-## Common
-proto = { workspace = true }
+rssflow-service.workspace = true
 
 tonic.workspace = true
-tonic-health.workspace = true
-prost-types.workspace = true
-
 tracing.workspace = true
-tracing-subscriber.workspace = true
-
 tokio.workspace = true
 
 ## Node
 reqwest.workspace = true
-url.workspace = true
 scraper = "0.23"
 
 redis.workspace = true
@@ -32,4 +25,4 @@ redis.workspace = true
 anyhow = "1"
 futures.workspace = true
 sha2 = "0.10"
-base64 = "0.21"
+base64 = "0.22"

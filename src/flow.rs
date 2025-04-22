@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use prost_types::Struct;
-use proto::node::Field;
+use rssflow_service::proto::node::Field;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -53,8 +53,9 @@ pub struct Flow {
 	pub nodes: Vec<NodeOptions>,
 }
 
+// TODO: Unused, might make this a thing again in the future
 #[derive(Serialize, Deserialize, Default)]
-pub struct FlowBuilder {
+struct FlowBuilder {
 	// nodes: Vec<NodeOptions>,
 }
 //

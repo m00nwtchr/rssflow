@@ -9,9 +9,9 @@ use std::{
 };
 
 use axum::extract::FromRef;
-use proto::{
+use rssflow_service::{
 	add_reflection_service,
-	registry::{
+	proto::registry::{
 		Empty, GetNodeRequest, GetNodeResponse, HeartbeatRequest, ListNodesResponse, Node,
 		RegisterRequest,
 		node_registry_server::{NodeRegistry, NodeRegistryServer},
@@ -22,7 +22,7 @@ use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use tokio::net::TcpListener;
-use tonic::{Request, Response, Status, transport::Server};
+use tonic::{Request, Response, Status, service::Routes, transport::Server};
 use tonic_health::pb::{
 	HealthCheckRequest, health_check_response::ServingStatus, health_client::HealthClient,
 };
@@ -82,7 +82,8 @@ impl NodeRegistry for RSSFlow {
 
 			let resp = HealthClient::new(end)
 				.check(HealthCheckRequest {
-					service: proto::node::node_service_server::SERVICE_NAME.to_string(),
+					service: rssflow_service::proto::node::node_service_server::SERVICE_NAME
+						.to_string(),
 				})
 				.await?
 				.into_inner();
@@ -134,7 +135,7 @@ impl NodeRegistry for RSSFlow {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	tracing_subscriber::fmt::init();
+	rssflow_service::tracing::init();
 	let config = config().await;
 
 	let (health_reporter, health_service) = tonic_health::server::health_reporter();
@@ -160,14 +161,19 @@ async fn main() -> anyhow::Result<()> {
 		nodes: Mutex::default(),
 	}));
 
-	tracing::info!("gRPC service at: {}", addr);
-	tracing::info!("Listening at: {}", http_addr);
-	let server = add_reflection_service(
-		Server::builder(),
-		proto::registry::node_registry_server::SERVICE_NAME,
-	)?
-	.add_service(health_service)
-	.add_service(NodeRegistryServer::new(svc.clone()));
+	info!("gRPC service at: {}", addr);
+	info!("Listening at: {}", http_addr);
+	let server = Server::builder()
+		.add_routes({
+			let mut routes = Routes::builder();
+			add_reflection_service(
+				&mut routes,
+				rssflow_service::proto::registry::node_registry_server::SERVICE_NAME,
+			)?;
+			routes.routes()
+		})
+		.add_service(health_service)
+		.add_service(NodeRegistryServer::new(svc.clone()));
 
 	let http_server = axum::serve(TcpListener::bind(http_addr).await?, app(svc).await?);
 

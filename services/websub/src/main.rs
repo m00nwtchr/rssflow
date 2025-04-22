@@ -2,17 +2,17 @@
 
 use std::{
 	collections::HashMap,
-	net::SocketAddr,
 	ops::Deref,
 	sync::{Arc, Mutex},
 };
 
-use proto::{
-	registry::Node,
-	websub::{WebSub, web_sub_service_server::WebSubServiceServer},
+use rssflow_service::{
+	proto::{
+		registry::Node,
+		websub::{WebSub, web_sub_service_server::WebSubServiceServer},
+	},
+	service::ServiceBuilder,
 };
-use tokio::net::TcpListener;
-use tonic::transport::Server;
 use url::Url;
 use uuid::Uuid;
 
@@ -52,50 +52,16 @@ impl Deref for WebSubSVC {
 	}
 }
 
+pub const SERVICE_NAME: &str = "WebSub";
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	tracing_subscriber::fmt::init();
-	let (health_reporter, health_service) = tonic_health::server::health_reporter();
-	health_reporter
-		.set_serving::<WebSubServiceServer<WebSubSVC>>()
-		.await;
-
-	let port = std::env::var("GRPC_PORT")
-		.ok()
-		.and_then(|v| v.parse::<u16>().ok())
-		.unwrap_or(50051);
-	let http_port = std::env::var("HTTP_PORT")
-		.ok()
-		.and_then(|v| v.parse::<u16>().ok())
-		.unwrap_or(3435);
-
-	let ip = "::".parse().unwrap();
-
-	let addr = SocketAddr::new(ip, port);
-	let http_addr = SocketAddr::new(ip, http_port);
-
+	rssflow_service::tracing::init();
 	let svc = WebSubSVC::default();
-
-	tracing::info!("WebSub service at: {}", addr);
-	tracing::info!("WebSub endpoint at: {}", http_addr);
-	let server = Server::builder()
-		.add_service(health_service)
-		.add_service(WebSubServiceServer::new(svc.clone()));
-
-	let http_server = axum::serve(TcpListener::bind(http_addr).await?, app(svc));
-
-	tokio::select! {
-		res = server.serve(addr) => {
-			if let Err(err) = res {
-				tracing::error!("Failed to start gRPC server: {err}");
-			}
-		}
-		res = http_server => {
-			if let Err(err) = res {
-				tracing::error!("Failed to start HTTP server: {err}");
-			}
-		}
-	}
-
-	Ok(())
+	ServiceBuilder::new(SERVICE_NAME)
+		.await?
+		.with_service(WebSubServiceServer::new(svc.clone()))
+		.with_http(app(svc))
+		.run()
+		.await
 }

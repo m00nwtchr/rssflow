@@ -10,27 +10,23 @@ homepage.workspace = true
 repository.workspace = true
 
 [features]
+default = ["sha1"]
 sha1 = ["dep:sha1"]
 
 [dependencies]
-## Common
-proto.workspace = true
+rssflow-service.workspace = true
 
 tonic.workspace = true
-tonic-health.workspace = true
 prost-types.workspace = true
 
 tracing.workspace = true
-tracing-subscriber.workspace = true
-
 tokio.workspace = true
-tokio-stream = "0.1"
 
 ## Node
 reqwest.workspace = true
 url.workspace = true
+tokio-stream = "0.1"
 
-chrono.workspace = true
 uuid = { version = "1.15", features = ["serde", "v7"] }
 anyhow.workspace = true
 
