@@ -48,7 +48,7 @@ impl Deref for WebSubSVC {
 	type Target = WebSubInner;
 
 	fn deref(&self) -> &Self::Target {
-		self.0.deref()
+		&self.0
 	}
 }
 

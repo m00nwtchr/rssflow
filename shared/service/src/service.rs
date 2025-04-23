@@ -1,11 +1,8 @@
 use std::{convert::Infallible, net::SocketAddr, time::Duration};
 
-use futures::{
-	FutureExt,
-	future::{self, Either},
-};
+use futures::future::{self, Either};
 use rssflow_proto::node::node_service_server::{NodeService, NodeServiceServer};
-use tokio::{net::TcpListener, task::JoinHandle};
+use tokio::net::TcpListener;
 use tonic::{
 	body::Body,
 	codegen::{Service, http::Request},
@@ -13,10 +10,7 @@ use tonic::{
 	service::{Routes, RoutesBuilder},
 	transport::Server,
 };
-use tonic_health::{
-	pb::health_server::{Health, HealthServer},
-	server::{HealthService, health_reporter},
-};
+use tonic_health::server::health_reporter;
 use tracing::info;
 
 use crate::{add_reflection_service, report};
@@ -24,18 +18,18 @@ use crate::{add_reflection_service, report};
 /// A generic microservice builder for gRPC + optional HTTP
 pub struct ServiceBuilder {
 	name: &'static str,
-	health_reporter: tonic_health::server::HealthReporter,
 	routes: RoutesBuilder,
 	http: Option<axum::Router>,
-	flag: bool,
+	pg_pool: Option<()>,
+	health_reporter: tonic_health::server::HealthReporter,
+	node_service: bool,
 }
 
 impl ServiceBuilder {
 	/// Initialize tracing, load config, setup health + gRPC address
 	pub async fn new(name: &'static str) -> anyhow::Result<Self> {
 		crate::tracing::init();
-
-		let config = crate::config::config(name);
+		crate::config::config(name);
 
 		let (hr, hs) = health_reporter();
 
@@ -47,21 +41,20 @@ impl ServiceBuilder {
 			health_reporter: hr,
 			routes,
 			http: None,
-			flag: false,
+			node_service: false,
+			pg_pool: None,
 		})
 	}
-}
 
-impl ServiceBuilder {
 	/// Register a tonic gRPC service and mark it healthy
 	pub fn with_service<S>(mut self, svc: S) -> Self
 	where
-		S: Service<Request<Body>, Error=Infallible>
-		+ NamedService
-		+ Clone
-		+ Send
-		+ Sync
-		+ 'static,
+		S: Service<Request<Body>, Error = Infallible>
+			+ NamedService
+			+ Clone
+			+ Send
+			+ Sync
+			+ 'static,
 		S::Response: axum::response::IntoResponse,
 		S::Future: Send + 'static,
 	{
@@ -74,8 +67,8 @@ impl ServiceBuilder {
 	where
 		S: NodeService,
 	{
-		if !self.flag {
-			self.flag = true;
+		if !self.node_service {
+			self.node_service = true;
 			self.health_reporter
 				.set_serving::<NodeServiceServer<S>>()
 				.await;
@@ -119,7 +112,7 @@ impl ServiceBuilder {
 		};
 
 		info!("{} gRPC at {}", self.name, grpc_addr);
-		if self.flag {
+		if self.node_service {
 			tokio::spawn(async {
 				tokio::time::sleep(Duration::from_secs(5)).await;
 				let _ = report(self.name, config).await;

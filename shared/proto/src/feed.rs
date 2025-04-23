@@ -14,14 +14,14 @@ impl_name!(Link, "rssflow.feed");
 impl_name!(StringValue, "rssflow.feed");
 
 impl Entry {
-	pub fn value(&self, field: Field) -> Option<&String> {
+	#[must_use] pub fn value(&self, field: Field) -> Option<&String> {
 		match field {
 			Field::Author => {
 				// self.authors.first().map(|p| &p.name)
 				None
 			}
 			Field::Summary => self.summary.as_ref().map(|t| &t.value),
-			Field::Content => self.content.as_ref().and_then(|c| Some(&c.value)),
+			Field::Content => self.content.as_ref().map(|c| &c.value),
 			Field::Title => Some(&self.title),
 		}
 	}
@@ -33,7 +33,7 @@ impl Entry {
 				None
 			}
 			Field::Summary => self.summary.as_mut().map(|t| &mut t.value),
-			Field::Content => self.content.as_mut().and_then(|c| Some(&mut c.value)),
+			Field::Content => self.content.as_mut().map(|c| &mut c.value),
 			Field::Title => Some(&mut self.title),
 		}
 	}
@@ -46,7 +46,7 @@ mod atom {
 		Person as AtomPerson, Text as AtomText, TextType as AtomTextType,
 	};
 
-	use super::*;
+	use super::{Content, Entry, Feed, Link, Person, Text, TextType, from_timestamp, to_timestamp};
 
 	/// Converts an Atom feed into a protobuf `Feed`
 	impl From<&AtomFeed> for Feed {

@@ -4,9 +4,9 @@ use atom_syndication::Feed;
 use redis::AsyncCommands;
 use reqwest::{header, header::LINK};
 use rssflow_service::{
+	cache::Cached,
 	check_node,
 	proto::{
-		cache::Cached,
 		node::{ProcessRequest, ProcessResponse, node_service_server::NodeService},
 		registry::Node,
 		websub::{

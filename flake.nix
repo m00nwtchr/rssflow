@@ -3,8 +3,8 @@
   inputs = {
     crane.url = "github:ipetkov/crane";
     flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
+    fenix.url = "github:nix-community/fenix";
+    fenix.inputs.nixpkgs.follows = "nixpkgs";
 
     advisory-db = {
       url = "github:rustsec/advisory-db";
@@ -16,27 +16,30 @@
     nixpkgs,
     crane,
     flake-utils,
-    rust-overlay,
+    fenix,
     advisory-db,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [(import rust-overlay)];
+        overlays = [fenix.overlays.default];
       };
       inherit (pkgs) lib;
 
-      rustToolchain = pkgs.rust-bin.stable.latest.minimal.override {
-        extensions = ["clippy"];
-      };
-      rustDevToolchain = rustToolchain.override (prev: {
-        extensions = prev.extensions ++ ["rust-docs" "rust-src" "rust-analyzer"];
-      });
-      rustfmt = pkgs.rust-bin.selectLatestNightlyWith (t: t.rustfmt);
+      rustToolchain = pkgs.fenix.combine (with pkgs.fenix; [
+        stable.cargo
+        stable.clippy
+        stable.rustc
+        latest.rustfmt
+      ]);
 
-      craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustToolchain);
-      craneDev = craneLib.overrideToolchain (p: rustDevToolchain);
+      craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+      craneDev = craneLib.overrideToolchain (pkgs.fenix.combine (with pkgs.fenix.stable; [
+        rustToolchain
+        rust-analyzer
+        rust-src
+      ]));
 
       root = ./.;
       src = lib.fileset.toSource {
@@ -145,7 +148,6 @@
         # Check formatting
         workspace-fmt = craneLib.cargoFmt {
           inherit src;
-          nativeBuildInputs = [rustfmt];
         };
 
         # Audit dependencies

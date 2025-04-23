@@ -42,7 +42,7 @@ impl NodeService for FilterNode {
 				Some(rr) => rr.and_then(|s| {
 					Regex::from_str(s)
 						.map(Filter::Regex)
-						.map_err(|e| Status::invalid_argument(format!("invalid regex: {}", e)))
+						.map_err(|e| Status::invalid_argument(format!("invalid regex: {e}")))
 				})?,
 				None => Err(Status::invalid_argument(
 					"no filter option: oneof [contains, regex]",
@@ -51,7 +51,7 @@ impl NodeService for FilterNode {
 		};
 
 		let invert = match request.get_option::<&bool>("invert") {
-			Some(r) => r.map(|b| *b)?,
+			Some(r) => r.copied()?,
 			None => false,
 		};
 

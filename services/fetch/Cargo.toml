@@ -1,26 +1,19 @@
 [package]
 name = "rssflow-fetch"
-version.workspace = true
-edition.workspace = true
-description.workspace = true
-
 authors.workspace = true
-license.workspace = true
+description.workspace = true
+edition.workspace = true
 homepage.workspace = true
+license.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [dependencies]
-rssflow-service.workspace = true
-
+rssflow-service = { workspace = true, features = ["atom", "cache"] }
+atom_syndication = { version = "0.12", features = ["with-serde"] } # Replace with feed-rs for broader feed compat
+redis.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true
-tokio.workspace = true
-
-## Node
-rssflow-proto = { workspace = true, features = ["atom", "cache"] }
-
-reqwest.workspace = true
 url.workspace = true
-atom_syndication = { workspace = true, features = ["with-serde"] }# Replace with feed-rs for broader feed compat
-
-redis.workspace = true

@@ -75,7 +75,7 @@ impl NodeRegistry for RSSFlow {
 		if !node.node_name.is_empty() && !node.address.is_empty() {
 			let end = node
 				.endpoint()
-				.map_err(|e| Status::invalid_argument("Invalid"))?
+				.map_err(|e| Status::invalid_argument(e.to_string()))?
 				.connect()
 				.await
 				.map_err(|e| Status::unavailable(e.to_string()))?;
@@ -105,7 +105,7 @@ impl NodeRegistry for RSSFlow {
 
 	async fn heartbeat(
 		&self,
-		request: Request<HeartbeatRequest>,
+		_request: Request<HeartbeatRequest>,
 	) -> Result<Response<Empty>, Status> {
 		todo!()
 	}
@@ -125,7 +125,7 @@ impl NodeRegistry for RSSFlow {
 
 	async fn list_nodes(
 		&self,
-		request: Request<Empty>,
+		_request: Request<Empty>,
 	) -> Result<Response<ListNodesResponse>, Status> {
 		Ok(Response::new(ListNodesResponse {
 			nodes: self.nodes.lock().unwrap().values().cloned().collect(),

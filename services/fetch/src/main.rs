@@ -3,11 +3,11 @@
 use rssflow_service::{config::config, service::ServiceBuilder};
 mod service;
 
-pub const SERVICE_NAME: &str = "Fetch";
-
 struct FetchNode {
 	conn: redis::aio::MultiplexedConnection,
 }
+
+pub const SERVICE_NAME: &str = "Fetch";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

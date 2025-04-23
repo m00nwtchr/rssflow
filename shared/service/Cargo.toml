@@ -1,31 +1,38 @@
 [package]
 name = "rssflow-service"
-version.workspace = true
-edition.workspace = true
-description.workspace = true
 authors.workspace = true
-license.workspace = true
+description.workspace = true
+edition.workspace = true
 homepage.workspace = true
+license.workspace = true
 repository.workspace = true
+version.workspace = true
+
+[features]
+atom = ["rssflow-proto/atom"]
+cache = ["dep:redis", "dep:serde_json"]
 
 [dependencies]
-rssflow-proto.workspace = true
-
+tonic-reflection = "0.13"
+tracing-subscriber = "0.3"
+url = { workspace = true, features = ["serde"] }
+anyhow.workspace = true
+axum.workspace = true
+confique.workspace = true
+futures.workspace = true
 prost.workspace = true
 prost-types.workspace = true
-
-axum.workspace = true
+rssflow-proto.workspace = true
+tokio.workspace = true
 tonic.workspace = true
 tonic-health.workspace = true
-tonic-reflection = "0.13"
-
-tokio.workspace = true
-futures.workspace = true
-
 tracing.workspace = true
-tracing-subscriber.workspace = true
+tower.workspace = true
+tower-http.workspace = true
 
-anyhow.workspace = true
-confique = { version = "0.3", default-features = false, features = ["toml"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
 
-url = { workspace = true, features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+
+serde_json = { version = "1", optional = true }
+redis = { workspace = true, optional = true }

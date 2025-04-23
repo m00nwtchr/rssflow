@@ -1,32 +1,25 @@
 [package]
 name = "rssflow-proto"
-version.workspace = true
-edition.workspace = true
-description.workspace = true
-
 authors.workspace = true
-license.workspace = true
+description.workspace = true
+edition.workspace = true
 homepage.workspace = true
+license.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [features]
 atom = ["dep:atom_syndication"]
-cache = ["dep:redis", "dep:serde_json"]
+
 
 [dependencies]
-tonic.workspace = true
+atom_syndication = { version = "0.12", optional = true }
+serde = { version = "1", features = ["derive"] }
+anyhow.workspace = true
+chrono.workspace = true
 prost.workspace = true
 prost-types.workspace = true
-
-atom_syndication = { workspace = true, optional = true }
-chrono.workspace = true
-
-anyhow.workspace = true
-
-serde = { version = "1", features = ["derive"] }
-
-redis = { workspace = true, optional = true }
-serde_json = { version = "1", optional = true }
+tonic.workspace = true
 
 [build-dependencies]
-tonic-build.workspace = true
+tonic-build = "*"

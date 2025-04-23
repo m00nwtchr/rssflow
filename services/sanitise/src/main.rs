@@ -4,7 +4,7 @@ use rssflow_service::service::ServiceBuilder;
 
 mod service;
 
-pub fn default_ammonia() -> ammonia::Builder<'static> {
+#[must_use] pub fn default_ammonia() -> ammonia::Builder<'static> {
 	let mut ammonia = ammonia::Builder::new();
 	ammonia.add_generic_attributes(["style"]);
 	ammonia

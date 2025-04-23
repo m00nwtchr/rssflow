@@ -8,12 +8,12 @@ use proto::{
 };
 pub use rssflow_proto as proto;
 use rssflow_proto::node::{
-	ProcessRequest, ProcessResponse,
+	ProcessRequest,
 	node_service_server::{NodeService, NodeServiceServer},
 };
 use tokio::time::sleep;
 use tonic::{
-	Request, Response, Status,
+	Request, Status,
 	server::NamedService,
 	service::{Routes, RoutesBuilder},
 	transport::{Server, server::Router},
@@ -21,6 +21,8 @@ use tonic::{
 
 use crate::config::ServiceConfig;
 
+#[cfg(feature = "cache")]
+pub mod cache;
 pub mod config;
 pub mod service;
 
@@ -80,7 +82,7 @@ where
 			Ok(v) => return Ok(v),
 			Err(err) if retries > 0 => {
 				retries -= 1;
-				eprintln!("Operation failed: {:?}. Retries left: {}", err, retries);
+				eprintln!("Operation failed: {err:?}. Retries left: {retries}");
 				sleep(delay).await;
 			}
 			Err(err) => return Err(err),

@@ -1,14 +1,40 @@
 [package]
 name = "rssflow"
-version.workspace = true
-edition.workspace = true
-description.workspace = true
-
-authors.workspace = true
-license.workspace = true
-homepage.workspace = true
-repository.workspace = true
 publish = false
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+strip = true
+
+[dependencies]
+rssflow-service = { workspace = true, features = ["atom"] }
+
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
+atom_syndication = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow.workspace = true
+axum.workspace = true
+confique.workspace = true
+prost-types.workspace = true
+
+tokio.workspace = true
+tonic.workspace = true
+tonic-health.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
 
 [workspace]
 members = ["shared/*", "services/*"]
@@ -17,102 +43,28 @@ members = ["shared/*", "services/*"]
 version = "0.1.0"
 edition = "2024"
 description = "Flow-based RSS feed aggregator/processor"
-
 authors = ["m00nwtchr"]
 license = "MPL-2"
 homepage = "https://github.com/m00nwtchr/rssflow"
 repository = "https://github.com/m00nwtchr/rssflow"
 
-
 [workspace.dependencies]
 rssflow-proto = { path = "shared/proto" }
 rssflow-service = { path = "shared/service" }
-
-# Common
-reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls", "json"] }
-url = "*"
-chrono = "0.4"
-redis = { version = "0.29", features = ["tokio-comp", "json"] }
-
 prost = "0.13"
 prost-types = "0.13"
-
-axum = { version = "0.8", features = ["macros"] }
+axum = "0.8"
+tonic = "*"
+tonic-health = "*" # Cut
+tokio = { version = "1.44", default-features = false, features = ["rt-multi-thread", "macros"] }
+futures = "0.3"
+tracing = "0.1"
+anyhow = "1"
+confique = { version = "0.3", default-features = false, features = ["toml"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["trace"] }
-
-tonic-build = "*"
-
-anyhow = "1"
-futures = "0.3"
-
-## Service Common Deps
-tonic = "*"
-tonic-health = "*"
-
-tracing = "0.1"
-tracing-subscriber = "0.3"
-
-tokio = { version = "1.44", default-features = false, features = ["rt-multi-thread", "macros"] }
-##
-atom_syndication = "0.12"
-
-[profile.release]
-opt-level = 3
-lto = "fat"
-strip = true
-
-[profile.dev.package.sqlx-macros]
-opt-level = 3
-
-[features]
-#default = ["filter", "retrieve", "sanitise"]
-#filter = ["dep:regex", "dep:serde_regex"]
-#retrieve = ["dep:scraper"]
-#sanitise = ["dep:ammonia"]
-#html = ["dep:scraper"]
-
-[dependencies]
-rssflow-service.workspace = true
-
-tonic.workspace = true
-tonic-health.workspace = true
-prost-types.workspace = true
-
-tracing.workspace = true
-tokio.workspace = true
-
-##
-rssflow-proto = { workspace = true, features = ["atom"] }
-
-## HTTP
-axum.workspace = true
-tower.workspace = true
-tower-http.workspace = true
-
-##
-reqwest.workspace = true
-url.workspace = true
-
-anyhow.workspace = true
-
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-
-confique = { version = "0.3", default-features = false, features = ["toml"] }
-
-#uuid = { version = "1.15", features = ["serde", "v7"] }
-
-atom_syndication.workspace = true
-
-#feed-rs = { version = "2.3" }
-#mediatype = "0.19"
-
-#tokio-stream = { version = "0.1", features = ["sync"] }
-
-#mimalloc = "0.1"
-
-#strum = { version = "0.27", features = ["derive"] }
-#derive_more = { version = "2", features = ["from"] }
-
+reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls", "json"] }
+redis = { version = "0.30", features = ["tokio-comp", "json"] }
+url = "2.5"
+chrono = "0.4"
+# uuid = { version = "1.15", features = ["serde", "v7"] }

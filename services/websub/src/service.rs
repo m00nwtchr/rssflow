@@ -21,17 +21,16 @@ impl WebSubService for WebSubSVC {
 		};
 		let Some(node) = request.node else { todo!() };
 
-		let uuid = self
+		let uuid = *self
 			.ws
 			.lock()
 			.unwrap()
 			.entry(sub.clone())
-			.or_insert(Uuid::new_v7(Timestamp::now(NoContext)))
-			.clone();
+			.or_insert(Uuid::new_v7(Timestamp::now(NoContext)));
 		self.subscriptions
 			.lock()
 			.unwrap()
-			.entry(uuid.clone())
+			.entry(uuid)
 			.and_modify(|s| {
 				s.nodes.push(node.clone());
 			})
@@ -108,7 +107,7 @@ impl WebSubService for WebSubSVC {
 		};
 		let Some(node) = request.node else { todo!() };
 
-		let uuid = self.ws.lock().unwrap().get(&sub).cloned();
+		let uuid = self.ws.lock().unwrap().get(&sub).copied();
 		if let Some(uuid) = uuid {
 			self.subscriptions
 				.lock()

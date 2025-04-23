@@ -146,8 +146,6 @@ pub mod websub {
 		}
 	}
 }
-#[cfg(feature = "cache")]
-pub mod cache;
 
 #[cfg(debug_assertions)]
 pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("proto_descriptor");

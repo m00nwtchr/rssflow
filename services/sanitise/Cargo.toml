@@ -1,21 +1,17 @@
 [package]
 name = "rssflow-sanitise"
-version.workspace = true
-edition.workspace = true
-description.workspace = true
-
 authors.workspace = true
-license.workspace = true
+description.workspace = true
+edition.workspace = true
 homepage.workspace = true
+license.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [dependencies]
-rssflow-service.workspace = true
-
-tonic.workspace = true
-tracing.workspace = true
-tokio.workspace = true
-
-## Node
 ammonia = "4.1"
 futures.workspace = true
+rssflow-service.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+tracing.workspace = true

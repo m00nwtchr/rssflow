@@ -7,7 +7,7 @@ use rssflow_service::{
 	check_node,
 	proto::{
 		feed::{Content, Entry, Feed},
-		node::{Field, ProcessRequest, ProcessResponse, node_service_server::NodeService},
+		node::{ProcessRequest, ProcessResponse, node_service_server::NodeService},
 	},
 	try_from_request,
 };
@@ -46,7 +46,7 @@ async fn get_content(
 		let content: String = {
 			let content = reqwest::get(&link.href).await?.text().await?;
 			let html = Html::parse_document(&content);
-			html.select(&selector).map(|s| s.inner_html()).collect()
+			html.select(selector).map(|s| s.inner_html()).collect()
 		};
 		let _: () = conn.set_ex(key, &content, 86400).await?;
 

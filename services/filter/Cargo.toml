@@ -1,20 +1,16 @@
 [package]
 name = "rssflow-filter"
-version.workspace = true
-edition.workspace = true
-description.workspace = true
-
 authors.workspace = true
-license.workspace = true
+description.workspace = true
+edition.workspace = true
 homepage.workspace = true
+license.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [dependencies]
+regex = "1.11.1"
 rssflow-service.workspace = true
-
+tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true
-tokio.workspace = true
-
-## Node
-regex = "1.11.1"
