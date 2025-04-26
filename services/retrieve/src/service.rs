@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use tonic::{Request, Response, Status};
 use tracing::instrument;
 
-use crate::{RetrieveNode, SERVICE_NAME};
+use crate::{RetrieveNode, SERVICE_INFO};
 
 fn make_cache_key(url: &str, selector: &str) -> String {
 	let mut hasher = Sha256::new();
@@ -64,12 +64,13 @@ async fn get_content(
 
 #[tonic::async_trait]
 impl NodeService for RetrieveNode {
-	#[instrument(skip(self))]
+	#[instrument(skip_all)]
 	async fn process(
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		check_node(&request, SERVICE_NAME)?;
+		rssflow_service::telemetry::accept_trace(&request);
+		check_node(&request, &SERVICE_INFO)?;
 		let request = request.into_inner();
 
 		let mut feed: Feed = try_from_request(&request)?;

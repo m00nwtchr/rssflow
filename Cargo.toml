@@ -18,23 +18,23 @@ lto = "fat"
 strip = true
 
 [dependencies]
-rssflow-service = { workspace = true, features = ["atom"] }
-
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
-atom_syndication = "0.12"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-anyhow.workspace = true
-axum.workspace = true
-confique.workspace = true
-prost-types.workspace = true
+rssflow-service = { workspace = true, features = ["atom", "db"] }
 
 tokio.workspace = true
 tonic.workspace = true
-tonic-health.workspace = true
-tower.workspace = true
-tower-http.workspace = true
 tracing.workspace = true
+prost-types.workspace = true
+axum.workspace = true
+
+sqlx = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+anyhow.workspace = true
+atom_syndication = "0.12"
+tonic-health.workspace = true
+
 
 [workspace]
 members = ["shared/*", "services/*"]
@@ -60,11 +60,13 @@ tokio = { version = "1.44", default-features = false, features = ["rt-multi-thre
 futures = "0.3"
 tracing = "0.1"
 anyhow = "1"
-confique = { version = "0.3", default-features = false, features = ["toml"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["trace"] }
+tower-http = { version = "0.6", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls", "json"] }
 redis = { version = "0.30", features = ["tokio-comp", "json"] }
 url = "2.5"
 chrono = "0.4"
+serde = "1"
+serde_json = "1"
 # uuid = { version = "1.15", features = ["serde", "v7"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }

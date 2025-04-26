@@ -5,7 +5,7 @@ use redis::AsyncCommands;
 use reqwest::{header, header::LINK};
 use rssflow_service::{
 	cache::Cached,
-	check_node,
+	check_node, interceptor,
 	proto::{
 		node::{ProcessRequest, ProcessResponse, node_service_server::NodeService},
 		registry::Node,
@@ -13,22 +13,24 @@ use rssflow_service::{
 			SubscribeRequest, WebSub, WebSubEvent, web_sub_service_client::WebSubServiceClient,
 		},
 	},
+	telemetry::send_trace,
 	try_from_request,
 };
-use tonic::{Request, Response, Status};
-use tracing::{info, instrument};
+use tonic::{Request, Response, Status, transport::Endpoint};
+use tracing::{error, info, instrument};
 use url::Url;
 
-use crate::{FetchNode, SERVICE_NAME};
+use crate::{FetchNode, SERVICE_INFO};
 
 #[tonic::async_trait]
 impl NodeService for FetchNode {
-	#[instrument(skip(self))]
+	#[instrument(skip_all)]
 	async fn process(
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		check_node(&request, SERVICE_NAME)?;
+		rssflow_service::telemetry::accept_trace(&request);
+		check_node(&request, &SERVICE_INFO)?;
 		let request = request.into_inner();
 		let mut conn = self.conn.clone();
 
@@ -95,16 +97,29 @@ impl NodeService for FetchNode {
 			if let Some(websub) = websub {
 				info!("{websub:?}");
 
-				if let Ok(mut client) = WebSubServiceClient::connect("http://[::]:50052").await {
-					let _ = client
-						.subscribe(SubscribeRequest {
-							sub: Some(websub),
-							node: Some(Node {
-								address: "http://[::]:50061".to_string(),
-								node_name: "Fetch".into(),
-							}),
-						})
-						.await;
+				let websub_service = "http://[::]:50052";
+
+				match async {
+					let endpoint = Endpoint::from_str(websub_service)?;
+					endpoint.connect().await
+				}
+				.await
+				{
+					Ok(channel) => {
+						let mut client =
+							WebSubServiceClient::with_interceptor(channel, interceptor(send_trace));
+
+						let _ = client
+							.subscribe(SubscribeRequest {
+								sub: Some(websub),
+								node: Some(Node {
+									address: "http://[::]:50061".to_string(),
+									node_name: SERVICE_INFO.name.to_string(),
+								}),
+							})
+							.await;
+					}
+					Err(err) => error!("{err}"),
 				}
 			}
 

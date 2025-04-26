@@ -1,6 +1,4 @@
 use axum::{Router, http::StatusCode, routing::get};
-use tower::ServiceBuilder;
-use tower_http::trace::TraceLayer;
 
 use crate::{RSSFlow, route};
 
@@ -65,8 +63,7 @@ pub async fn app(state: RSSFlow) -> anyhow::Result<Router> {
 		.nest("/api", route::api())
 		.nest("/flow", route::flow())
 		.route("/", get(|| async { StatusCode::OK }))
-		.with_state(state)
-		.layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
+		.with_state(state);
 
 	Ok(router)
 }

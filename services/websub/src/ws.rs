@@ -2,16 +2,24 @@ use std::{str::FromStr, time::Duration};
 
 use anyhow::anyhow;
 use axum::http::HeaderName;
+use base64::{Engine as _, engine::general_purpose};
+use rand::RngCore;
 use serde::Deserialize;
 use serde_with::{DurationSeconds, serde_as};
 use sha2::{Sha256, Sha384, Sha512};
 
 // https://security.stackexchange.com/questions/95972/what-are-requirements-for-hmac-secret-key#96176
 // https://www.w3.org/TR/websub/#x5-1-subscriber-sends-subscription-request
-pub const HMAC_SECRET_LENGTH: usize = 64; // 64 * 8 = 512 bits
+pub const HMAC_SECRET_LENGTH: usize = 64; // 64 bytes = 512 bits
 
 #[allow(clippy::declare_interior_mutable_const)]
 pub const X_HUB_SIGNATURE: HeaderName = HeaderName::from_static("x-hub-signature");
+
+pub fn generate_hmac_secret() -> String {
+	let mut bytes = [0u8; HMAC_SECRET_LENGTH];
+	rand::rng().fill_bytes(&mut bytes);
+	general_purpose::STANDARD.encode(&bytes)
+}
 
 #[serde_as]
 #[derive(Deserialize, Debug)]

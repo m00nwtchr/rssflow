@@ -1,21 +1,21 @@
 {
-  "db_name": "SQLite",
+  "db_name": "PostgreSQL",
   "query": "SELECT name, content FROM flows",
   "describe": {
     "columns": [
       {
-        "name": "name",
         "ordinal": 0,
+        "name": "name",
         "type_info": "Text"
       },
       {
-        "name": "content",
         "ordinal": 1,
-        "type_info": "Text"
+        "name": "content",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Left": []
     },
     "nullable": [
       false,

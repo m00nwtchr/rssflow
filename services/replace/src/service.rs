@@ -12,16 +12,17 @@ use rssflow_service::{
 use tonic::{Request, Response, Status};
 use tracing::instrument;
 
-use crate::{ReplaceNode, SERVICE_NAME};
+use crate::{ReplaceNode, SERVICE_INFO};
 
 #[tonic::async_trait]
 impl NodeService for ReplaceNode {
-	#[instrument(skip(self))]
+	#[instrument(skip_all)]
 	async fn process(
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		check_node(&request, SERVICE_NAME)?;
+		rssflow_service::telemetry::accept_trace(&request);
+		check_node(&request, &SERVICE_INFO)?;
 		let request = request.into_inner();
 
 		let mut feed: Feed = try_from_request(&request)?;

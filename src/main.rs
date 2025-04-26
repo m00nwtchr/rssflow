@@ -3,46 +3,35 @@
 
 use std::{
 	collections::HashMap,
-	net::SocketAddr,
 	ops::Deref,
 	sync::{Arc, Mutex},
 };
 
-use axum::extract::FromRef;
 use rssflow_service::{
-	add_reflection_service,
+	NodeExt,
 	proto::registry::{
 		Empty, GetNodeRequest, GetNodeResponse, HeartbeatRequest, ListNodesResponse, Node,
 		RegisterRequest,
 		node_registry_server::{NodeRegistry, NodeRegistryServer},
 	},
+	service::ServiceBuilder,
+	service_info,
 };
-use sqlx::{
-	SqlitePool,
-	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
-};
-use tokio::net::TcpListener;
-use tonic::{Request, Response, Status, service::Routes, transport::Server};
-use tonic_health::pb::{
-	HealthCheckRequest, health_check_response::ServingStatus, health_client::HealthClient,
-};
+use tonic::{Request, Response, Status};
+use tonic_health::{ServingStatus, pb::HealthCheckRequest};
 use tracing::{info, instrument};
 
 mod app;
-mod config;
-mod feed;
 mod flow;
 mod route;
-mod subscriber;
 
-use crate::{app::app, config::config};
+use crate::app::app;
 
 // #[global_allocator]
 // static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Debug)]
 struct RSSFlowInner {
-	pub pool: SqlitePool,
 	pub nodes: Mutex<HashMap<String, Node>>,
 }
 
@@ -58,29 +47,20 @@ impl Deref for RSSFlow {
 	}
 }
 
-impl FromRef<RSSFlow> for SqlitePool {
-	fn from_ref(input: &RSSFlow) -> Self {
-		input.pool.clone()
-	}
-}
-
 #[tonic::async_trait]
 impl NodeRegistry for RSSFlow {
-	#[instrument]
+	#[instrument(skip_all)]
 	async fn register(&self, request: Request<RegisterRequest>) -> Result<Response<Empty>, Status> {
+		rssflow_service::telemetry::accept_trace(&request);
 		let Some(node) = request.into_inner().node else {
 			return Err(Status::invalid_argument("Invalid node argument"));
 		};
 
 		if !node.node_name.is_empty() && !node.address.is_empty() {
-			let end = node
-				.endpoint()
-				.map_err(|e| Status::invalid_argument(e.to_string()))?
-				.connect()
+			let response = node
+				.health()
 				.await
-				.map_err(|e| Status::unavailable(e.to_string()))?;
-
-			let resp = HealthClient::new(end)
+				.map_err(|e| Status::invalid_argument(e.to_string()))?
 				.check(HealthCheckRequest {
 					service: rssflow_service::proto::node::node_service_server::SERVICE_NAME
 						.to_string(),
@@ -88,7 +68,7 @@ impl NodeRegistry for RSSFlow {
 				.await?
 				.into_inner();
 
-			if resp.status == ServingStatus::Serving as i32 {
+			if response.status == ServingStatus::Serving as i32 {
 				info!("Successfully added Node: {}", node.node_name);
 				self.nodes
 					.lock()
@@ -103,17 +83,21 @@ impl NodeRegistry for RSSFlow {
 		}
 	}
 
+	#[instrument(skip_all)]
 	async fn heartbeat(
 		&self,
-		_request: Request<HeartbeatRequest>,
+		request: Request<HeartbeatRequest>,
 	) -> Result<Response<Empty>, Status> {
+		rssflow_service::telemetry::accept_trace(&request);
 		todo!()
 	}
 
+	#[instrument(skip_all)]
 	async fn get_node(
 		&self,
 		request: Request<GetNodeRequest>,
 	) -> Result<Response<GetNodeResponse>, Status> {
+		rssflow_service::telemetry::accept_trace(&request);
 		let name = request.into_inner().name;
 		if name.is_empty() {
 			Err(Status::invalid_argument("Missing name argument"))
@@ -123,72 +107,34 @@ impl NodeRegistry for RSSFlow {
 		}
 	}
 
+	#[instrument(skip_all)]
 	async fn list_nodes(
 		&self,
-		_request: Request<Empty>,
+		request: Request<Empty>,
 	) -> Result<Response<ListNodesResponse>, Status> {
+		rssflow_service::telemetry::accept_trace(&request);
 		Ok(Response::new(ListNodesResponse {
 			nodes: self.nodes.lock().unwrap().values().cloned().collect(),
 		}))
 	}
 }
 
+service_info!("rssflow");
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	rssflow_service::tracing::init();
-	let config = config().await;
-
-	let (health_reporter, health_service) = tonic_health::server::health_reporter();
-	health_reporter
-		.set_serving::<NodeRegistryServer<RSSFlow>>()
-		.await;
-
-	let http_addr = SocketAddr::new(config.address, config.port);
-	let addr = SocketAddr::new(config.address, config.grpc_port);
-
-	let pool = SqlitePoolOptions::new()
-		.connect_with(
-			SqliteConnectOptions::new()
-				.filename(&config.database_file)
-				.journal_mode(SqliteJournalMode::Wal)
-				.create_if_missing(true),
-		)
-		.await?;
-	sqlx::migrate!().run(&pool).await?;
+	rssflow_service::tracing::init(&SERVICE_INFO);
 
 	let svc = RSSFlow(Arc::new(RSSFlowInner {
-		pool,
 		nodes: Mutex::default(),
 	}));
 
-	info!("gRPC service at: {}", addr);
-	info!("Listening at: {}", http_addr);
-	let server = Server::builder()
-		.add_routes({
-			let mut routes = Routes::builder();
-			add_reflection_service(
-				&mut routes,
-				rssflow_service::proto::registry::node_registry_server::SERVICE_NAME,
-			)?;
-			routes.routes()
-		})
-		.add_service(health_service)
-		.add_service(NodeRegistryServer::new(svc.clone()));
-
-	let http_server = axum::serve(TcpListener::bind(http_addr).await?, app(svc).await?);
-
-	tokio::select! {
-		res = server.serve(addr) => {
-			if let Err(err) = res {
-				tracing::error!("Failed to start gRPC server: {err}");
-			}
-		}
-		res = http_server => {
-			if let Err(err) = res {
-				tracing::error!("Failed to start HTTP server: {err}");
-			}
-		}
-	}
-
+	let _ = ServiceBuilder::new(SERVICE_INFO)?
+		.with_pg(|pool| async move { sqlx::migrate!().run(&pool).await })
+		.await?
+		.with_service(NodeRegistryServer::new(svc.clone()))
+		.with_http(app(svc).await?)
+		.run()
+		.await;
 	Ok(())
 }

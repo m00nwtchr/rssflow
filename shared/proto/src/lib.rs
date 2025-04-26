@@ -63,35 +63,13 @@ pub mod node {
 	}
 }
 pub mod registry {
-	use std::str::FromStr;
+	
 
-	use tonic::{
-		Request, Response,
-		transport::{Channel, Endpoint},
-	};
+	
 
-	use crate::node::{ProcessRequest, ProcessResponse, node_service_client::NodeServiceClient};
+	
 
 	tonic::include_proto!("rssflow.registry");
-
-	impl Node {
-		pub fn endpoint(&self) -> anyhow::Result<Endpoint> {
-			Ok(Endpoint::from_str(&self.address)?)
-		}
-
-		pub async fn client(&self) -> anyhow::Result<NodeServiceClient<Channel>> {
-			Ok(NodeServiceClient::new(self.endpoint()?.connect().await?))
-		}
-
-		pub async fn process(
-			&self,
-			req: ProcessRequest,
-		) -> anyhow::Result<Response<ProcessResponse>> {
-			let mut req = Request::new(req);
-			req.metadata_mut().insert("x-node", self.node_name.parse()?);
-			Ok(self.client().await?.process(req).await?)
-		}
-	}
 }
 pub mod websub {
 	use std::str::FromStr;

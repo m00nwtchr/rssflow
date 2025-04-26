@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE subscription SET lease_end = $1 WHERE topic = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "afc5b309485c1475d7328025bc1d7ae10c7b3e9aaca1f643debc29a09ab94de6"
+}

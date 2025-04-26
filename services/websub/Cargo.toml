@@ -25,10 +25,11 @@ anyhow.workspace = true
 axum.workspace = true
 prost-types.workspace = true
 reqwest.workspace = true
-rssflow-service.workspace = true
+rssflow-service = { workspace = true, features = ["db"] }
 tokio.workspace = true
 tonic.workspace = true
-tower.workspace = true
-tower-http.workspace = true
 tracing.workspace = true
 url.workspace = true
+sqlx.workspace = true
+rand = "0.9.1"
+base64 = "0.22.1"

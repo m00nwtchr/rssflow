@@ -8,7 +8,7 @@ import "registry.proto";
 service WebSubService {
   rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
   rpc Unsubscribe(SubscribeRequest) returns (SubscribeResponse);
-  
+
   rpc Receive(WebSubRequest) returns (stream WebSubEvent);
 }
 
@@ -18,7 +18,7 @@ message SubscribeRequest {
 }
 
 message SubscribeResponse {
-
+  bool new_subscription = 1;
 }
 
 message WebSub {

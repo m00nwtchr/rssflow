@@ -1,26 +1,28 @@
 {
-  "db_name": "SQLite",
-  "query": "SELECT secret, topic, hub FROM websub WHERE uuid = ?",
+  "db_name": "PostgreSQL",
+  "query": "SELECT secret, topic, hub FROM subscription WHERE uuid = $1",
   "describe": {
     "columns": [
       {
-        "name": "secret",
         "ordinal": 0,
+        "name": "secret",
         "type_info": "Text"
       },
       {
-        "name": "topic",
         "ordinal": 1,
+        "name": "topic",
         "type_info": "Text"
       },
       {
-        "name": "hub",
         "ordinal": 2,
+        "name": "hub",
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 1
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -28,5 +30,5 @@
       false
     ]
   },
-  "hash": "135b5c468ea89dc381d64c6bb5b95672d75c78451107f8dcc194356837215cec"
+  "hash": "48489d8892535abaecdabe0b53a23e9142cf296fa3dbb35c2e9354f05c9de9d7"
 }

@@ -1,13 +1,13 @@
 use axum::{
-	Json, Router,
+	Extension, Json, Router,
 	extract::{Path, State},
 	http::StatusCode,
 	response::IntoResponse,
 	routing::{delete, get, put},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
-use tracing::error;
+use sqlx::PgPool;
+use tracing::{error, instrument};
 
 use super::internal_error;
 use crate::{RSSFlow, flow::Flow};
@@ -18,8 +18,9 @@ struct FlowResult {
 	content: Flow,
 }
 
+#[instrument(skip_all)]
 async fn get_flows(
-	State(pool): State<SqlitePool>,
+	Extension(pool): Extension<PgPool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
 	let results: Vec<_> = sqlx::query!("SELECT name, content FROM flows")
@@ -30,7 +31,7 @@ async fn get_flows(
 		.filter_map(|r| {
 			Some(FlowResult {
 				name: r.name,
-				content: serde_json::from_str(&r.content)
+				content: serde_json::from_value(r.content)
 					.inspect_err(|err| error!("{err}"))
 					.ok()?,
 			})
@@ -39,27 +40,30 @@ async fn get_flows(
 
 	Ok(Json(results))
 }
+
+#[instrument(skip_all)]
 async fn get_flow(
 	Path(name): Path<String>,
-	State(pool): State<SqlitePool>,
+	Extension(pool): Extension<PgPool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let content = sqlx::query_scalar!("SELECT content FROM flows WHERE name = ?", name)
+	let content = sqlx::query_scalar!("SELECT content FROM flows WHERE name = $1", name)
 		.fetch_one(&mut *conn)
 		.await
 		.map_err(internal_error)?;
 
-	let flow: Flow = serde_json::from_str(&content).map_err(internal_error)?;
+	let flow: Flow = serde_json::from_value(content).map_err(internal_error)?;
 	Ok(Json(flow))
 }
 
+#[instrument(skip_all)]
 async fn update_flow(
 	Path(name): Path<String>,
 	State(state): State<RSSFlow>,
-	State(pool): State<SqlitePool>,
+	Extension(pool): Extension<PgPool>,
 	Json(flow): Json<Flow>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-	let json = serde_json::to_string(&flow).map_err(internal_error)?;
+	let json = serde_json::to_value(&flow).map_err(internal_error)?;
 
 	// let flow = flow.build();
 	// flow.run()
@@ -88,7 +92,7 @@ async fn update_flow(
 	// 	.insert(name.clone(), FlowHandle::new(Arc::new(flow)));
 
 	if update {
-		sqlx::query!("UPDATE flows SET content = ? WHERE name = ?", json, name)
+		sqlx::query!("UPDATE flows SET content = $1 WHERE name = $2", json, name)
 			.execute(&mut *conn)
 			.await
 			.map_err(internal_error)?;
@@ -96,7 +100,7 @@ async fn update_flow(
 		Ok(StatusCode::NO_CONTENT)
 	} else {
 		sqlx::query!(
-			"INSERT INTO flows (name, content) VALUES (?, ?)",
+			"INSERT INTO flows (name, content) VALUES ($1, $2)",
 			name,
 			json
 		)
@@ -108,12 +112,13 @@ async fn update_flow(
 	}
 }
 
+#[instrument(skip_all)]
 async fn delete_flow(
 	Path(name): Path<String>,
-	State(pool): State<SqlitePool>,
+	Extension(pool): Extension<PgPool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	sqlx::query!("DELETE FROM flows WHERE name = ?", name)
+	sqlx::query!("DELETE FROM flows WHERE name = $1", name)
 		.execute(&mut *conn)
 		.await
 		.map_err(internal_error)?;

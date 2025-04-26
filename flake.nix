@@ -34,12 +34,15 @@
         latest.rustfmt
       ]);
 
-      craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-      craneDev = craneLib.overrideToolchain (pkgs.fenix.combine (with pkgs.fenix.stable; [
-        rustToolchain
-        rust-analyzer
-        rust-src
-      ]));
+      craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustToolchain);
+      craneDev = craneLib.overrideToolchain (p:
+        p.fenix.combine (with p.fenix.stable; [
+          rustToolchain
+          rust-analyzer
+          rust-src
+        ]));
+
+      craneNightly = craneLib.overrideToolchain pkgs.fenix.minimal.toolchain;
 
       root = ./.;
       src = lib.fileset.toSource {
@@ -49,6 +52,7 @@
           (lib.fileset.fileFilter (file: file.hasExt "proto") ./shared/proto/proto)
           (lib.fileset.maybeMissing ./migrations)
           (lib.fileset.maybeMissing ./.sqlx)
+          (lib.fileset.maybeMissing ./rustfmt.toml)
         ];
       };
 
@@ -120,7 +124,7 @@
         rssflow-filter = mkPackage craneLib "filter";
         rssflow-replace = mkPackage craneLib "replace";
         rssflow-retrieve = mkPackage craneLib "retrieve";
-        rssflow-sanitise = mkPackage craneLib "sanitise";
+        rssflow-sanitize = mkPackage craneLib "sanitize";
       };
 
       packages = mkPackages craneLib;
@@ -137,11 +141,13 @@
 
       dockerImages = lib.mapAttrs mkImage packages;
 
-      mkChecks = craneLib: {
+      mkChecks = craneLib: let
+        cargoArtifacts = mkCargoArtifacts craneLib;
+      in {
         # Run clippy
         workspace-clippy = craneLib.cargoClippy (commonArgs
           // {
-            cargoArtifacts = mkCargoArtifacts craneLib;
+            inherit cargoArtifacts;
             cargoClippyExtraArgs = "--all-targets -- --deny warnings";
           });
 
@@ -165,14 +171,25 @@
         # if you do not want the tests to run twice
         workspace-nextest = craneLib.cargoNextest (commonArgs
           // {
-            cargoArtifacts = mkCargoArtifacts craneLib;
+            inherit cargoArtifacts;
             partitions = 1;
             partitionType = "count";
             cargoNextestPartitionsExtraArgs = "--no-tests=pass";
           });
       };
     in {
-      checks = mkChecks craneLib // packages;
+      checks =
+        {
+          workspace-udeps = craneNightly.mkCargoDerivation (commonArgs
+            // {
+              cargoArtifacts = mkCargoArtifacts craneNightly;
+              pnameSuffix = "-udeps";
+              buildPhaseCargoCommand = "cargo udeps";
+              nativeBuildInputs = [pkgs.cargo-udeps];
+            });
+        }
+        // mkChecks craneLib
+        // packages;
       packages =
         {
           default = packages.rssflow;
@@ -200,6 +217,7 @@
 
         packages = with pkgs; [
           grpcurl
+          sqlx-cli
         ];
       };
     });

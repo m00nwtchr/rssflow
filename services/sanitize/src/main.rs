@@ -1,10 +1,12 @@
 #![warn(clippy::pedantic)]
 
-use rssflow_service::service::ServiceBuilder;
+use rssflow_service::{service::ServiceBuilder, service_info};
+use tracing::instrument;
 
 mod service;
 
-#[must_use] pub fn default_ammonia() -> ammonia::Builder<'static> {
+#[must_use]
+pub fn default_ammonia() -> ammonia::Builder<'static> {
 	let mut ammonia = ammonia::Builder::new();
 	ammonia.add_generic_attributes(["style"]);
 	ammonia
@@ -22,12 +24,12 @@ impl Default for SanitizeNode {
 	}
 }
 
-pub const SERVICE_NAME: &str = "Sanitise";
+service_info!("Sanitize");
 
 #[tokio::main]
+#[instrument]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	ServiceBuilder::new(SERVICE_NAME)
-		.await?
+	ServiceBuilder::new(SERVICE_INFO)?
 		.with_node_service(SanitizeNode::default())
 		.await
 		.run()

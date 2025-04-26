@@ -12,23 +12,23 @@ use rssflow_service::{
 use tonic::{Request, Response, Status};
 use tracing::instrument;
 
-use crate::{SERVICE_NAME, SanitizeNode};
+use crate::{SERVICE_INFO, SanitizeNode};
 
 #[tonic::async_trait]
 impl NodeService for SanitizeNode {
-	#[instrument(skip(self))]
+	#[instrument(skip_all)]
 	async fn process(
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		check_node(&request, SERVICE_NAME)?;
+		rssflow_service::telemetry::accept_trace(&request);
+		check_node(&request, &SERVICE_INFO)?;
 		let request = request.into_inner();
 
 		let mut feed: Feed = try_from_request(&request)?;
 
 		let field = request.get_option_required("field").and_then(|f: &f64| {
-			Field::try_from(*f as i32)
-				.map_err(|e| Status::invalid_argument("not a valid field enum value"))
+			Field::try_from(*f as i32).map_err(|e| Status::invalid_argument(e.to_string()))
 		})?;
 
 		feed.entries = stream::iter(feed.entries.into_iter())

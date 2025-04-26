@@ -1,5 +1,5 @@
 [package]
-name = "rssflow-sanitise"
+name = "rssflow-sanitize"
 authors.workspace = true
 description.workspace = true
 edition.workspace = true

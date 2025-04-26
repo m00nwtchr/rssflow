@@ -1,15 +1,18 @@
 use std::collections::HashMap;
 
 use axum::{
-	Router,
+	Extension, Router,
 	extract::{Path, State},
 	http::StatusCode,
 	response::IntoResponse,
 	routing::get,
 };
-use rssflow_service::proto::{node::ProcessRequest, registry::Node};
-use sqlx::SqlitePool;
-use tracing::info;
+use rssflow_service::{
+	NodeExt,
+	proto::{node::ProcessRequest, registry::Node},
+};
+use sqlx::PgPool;
+use tracing::{info, instrument};
 
 use crate::{
 	RSSFlow,
@@ -17,18 +20,19 @@ use crate::{
 	route::{Atom, internal_error},
 };
 
+#[instrument(skip_all)]
 async fn run(
 	Path(name): Path<String>,
 	State(state): State<RSSFlow>,
-	State(pool): State<SqlitePool>,
+	Extension(pool): Extension<PgPool>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let content = sqlx::query_scalar!("SELECT content FROM flows WHERE name = ?", name)
+	let content = sqlx::query_scalar!("SELECT content FROM flows WHERE name = $1", name)
 		.fetch_one(&mut *conn)
 		.await
 		.map_err(|_| (StatusCode::NOT_FOUND, String::from("Not found")))?;
 
-	let flow: Flow = serde_json::from_str(&content).map_err(internal_error)?;
+	let flow: Flow = serde_json::from_value(content).map_err(internal_error)?;
 
 	let known_nodes: HashMap<String, Node> = state.nodes.lock().unwrap().clone();
 
@@ -60,6 +64,7 @@ async fn run(
 	}
 }
 
+#[instrument(skip_all)]
 async fn subscribe(Path(name): Path<String>, State(state): State<RSSFlow>) -> StatusCode
 //-> Result<Sse<impl Stream<Item = anyhow::Result<Event>>>, StatusCode>
 {

@@ -14,7 +14,8 @@ impl_name!(Link, "rssflow.feed");
 impl_name!(StringValue, "rssflow.feed");
 
 impl Entry {
-	#[must_use] pub fn value(&self, field: Field) -> Option<&String> {
+	#[must_use]
+	pub fn value(&self, field: Field) -> Option<&String> {
 		match field {
 			Field::Author => {
 				// self.authors.first().map(|p| &p.name)
