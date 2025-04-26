@@ -9,9 +9,9 @@
       <sourceFolder url="file://$MODULE_DIR$/services/filter/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/services/replace/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/services/retrieve/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/services/sanitise/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/shared/service/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/shared/websub/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/services/sanitize/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.direnv" />
