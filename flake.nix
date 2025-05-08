@@ -93,6 +93,8 @@
               (craneLib.fileset.commonCargoSources ./src)
 
               (craneLib.fileset.commonCargoSources crate)
+              (lib.fileset.maybeMissing (crate + /.sqlx))
+              (lib.fileset.maybeMissing (crate + /migrations))
             ]
             ++ fs);
         };
