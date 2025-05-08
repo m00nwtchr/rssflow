@@ -193,17 +193,18 @@
       packages =
         {
           default = packages.rssflow;
-          dockerImages =
-            {
-              default = pkgs.linkFarm "docker-images" (pkgs.lib.mapAttrsToList
-                (name: image: {
-                  name = name;
-                  path = image;
-                })
-                dockerImages);
-            }
-            // dockerImages;
+          dockerImages = pkgs.linkFarm "docker-images" (pkgs.lib.mapAttrsToList
+            (name: image: {
+              name = name;
+              path = image;
+            })
+            dockerImages);
         }
+        // (lib.mapAttrs' (name: value: {
+            name = "${name}-docker";
+            value = value;
+          })
+          dockerImages)
         // packages;
       apps.default = flake-utils.lib.mkApp {
         drv = packages.rssflow;
