@@ -4,10 +4,7 @@ use std::{error::Error, fmt::Debug, str::FromStr, time::Duration};
 
 use ::tracing::error;
 use anyhow::Context;
-use proto::{
-	FILE_DESCRIPTOR_SET,
-	registry::{Node, RegisterRequest, node_registry_client::NodeRegistryClient},
-};
+use proto::registry::{Node, RegisterRequest, node_registry_client::NodeRegistryClient};
 pub use rssflow_proto as proto;
 use rssflow_proto::node::{
 	ProcessRequest, ProcessResponse, node_service_client::NodeServiceClient,
@@ -119,6 +116,7 @@ pub fn add_reflection_service(
 	s: &mut RoutesBuilder,
 	name: impl Into<String>,
 ) -> anyhow::Result<()> {
+	use proto::FILE_DESCRIPTOR_SET;
 	let reflection = tonic_reflection::server::Builder::configure()
 		.register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
 		.with_service_name(name)
@@ -129,8 +127,11 @@ pub fn add_reflection_service(
 }
 
 #[cfg(not(debug_assertions))]
-pub fn add_reflection_service(s: Server, _name: impl Into<String>) -> anyhow::Result<Server> {
-	Ok(s)
+pub fn add_reflection_service(
+	s: &mut RoutesBuilder,
+	_name: impl Into<String>,
+) -> anyhow::Result<()> {
+	Ok(())
 }
 
 pub mod tracing {
