@@ -70,7 +70,7 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           # split on commas (or adjust IFS if your tags are newline-separated)
-          IFS='\n' read -r -a TAG_ARRAY <<< "NEW_TAGS"
+          IFS='\n' read -r -a TAG_ARRAY <<< "$TAGS"
           
           # build NEW_TAGS of the form name:tag
           NEW_TAGS=()
@@ -88,12 +88,12 @@ jobs:
           done
 
           # export for later steps
-          echo "NEW_TAGS=${NEW_TAGS[*]}" >> $GITHUB_ENV
+          echo "TAGS=${NEW_TAGS[*]}" >> $GITHUB_ENV
 
       - name: Push images
         if: github.event_name != 'pull_request'
         run: |
-          IFS=' ' read -r -a TAG_ARRAY <<< "$NEW_TAGS"
+          IFS=' ' read -r -a TAG_ARRAY <<< "$TAGS"
           
           for tag in "${TAG_ARRAY[@]}"; do
             docker push "$tag"
@@ -102,8 +102,9 @@ jobs:
       - name: Cosign sign images
         if: github.event_name != 'pull_request'
         run: |
-          IFS=' ' read -r -a TAG_ARRAY <<< "$NEW_TAGS"
+          IFS=' ' read -r -a TAG_ARRAY <<< "$TAGS"
           
+          echo "${TAG_ARRAY[@]}"
           for image in result/*; do
             name=$(basename "$image")
             digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$name:latest")
