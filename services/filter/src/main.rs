@@ -1,18 +1,17 @@
 #![warn(clippy::pedantic)]
 
-use rssflow_service::{service::ServiceBuilder, service_info};
+use rssflow_service::{proto, proto::node::node_service_server::NodeServiceServer};
+use runesys::Service;
 
 mod service;
 
+#[derive(Service)]
+#[service("Filter")]
+#[server(NodeServiceServer)]
+#[fd_set(proto::FILE_DESCRIPTOR_SET)]
 struct FilterNode;
 
-service_info!("Filter");
-
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	ServiceBuilder::new(SERVICE_INFO)?
-		.with_node_service(FilterNode)
-		.await
-		.run()
-		.await
+async fn main() -> Result<(), runesys::error::Error> {
+	FilterNode.builder().run().await
 }

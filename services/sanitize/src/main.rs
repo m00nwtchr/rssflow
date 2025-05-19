@@ -1,6 +1,7 @@
 #![warn(clippy::pedantic)]
 
-use rssflow_service::{service::ServiceBuilder, service_info};
+use rssflow_service::proto::{self, node::node_service_server::NodeServiceServer};
+use runesys::Service;
 use tracing::instrument;
 
 mod service;
@@ -12,6 +13,9 @@ pub fn default_ammonia() -> ammonia::Builder<'static> {
 	ammonia
 }
 
+#[derive(Service)]
+#[server(NodeServiceServer)]
+#[fd_set(proto::FILE_DESCRIPTOR_SET)]
 struct SanitizeNode {
 	ammonia: ammonia::Builder<'static>,
 }
@@ -24,14 +28,8 @@ impl Default for SanitizeNode {
 	}
 }
 
-service_info!("Sanitize");
-
 #[tokio::main]
 #[instrument]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	ServiceBuilder::new(SERVICE_INFO)?
-		.with_node_service(SanitizeNode::default())
-		.await
-		.run()
-		.await
+async fn main() -> Result<(), runesys::error::Error> {
+	SanitizeNode::default().builder().run().await
 }

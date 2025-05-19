@@ -4,7 +4,6 @@ use atom_syndication::Feed;
 use redis::AsyncCommands;
 use reqwest::{header, header::LINK};
 use rssflow_service::{
-	cache::Cached,
 	check_node, interceptor,
 	proto::{
 		node::{ProcessRequest, ProcessResponse, node_service_server::NodeService},
@@ -13,14 +12,14 @@ use rssflow_service::{
 			SubscribeRequest, WebSub, WebSubEvent, web_sub_service_client::WebSubServiceClient,
 		},
 	},
-	telemetry::send_trace,
 	try_from_request,
 };
+use runesys::{Service, cache::Cached, telemetry::propagation::send_trace};
 use tonic::{Request, Response, Status, transport::Endpoint};
 use tracing::{error, info, instrument};
 use url::Url;
 
-use crate::{FetchNode, SERVICE_INFO};
+use crate::FetchNode;
 
 #[tonic::async_trait]
 impl NodeService for FetchNode {
@@ -29,8 +28,8 @@ impl NodeService for FetchNode {
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
-		check_node(&request, &SERVICE_INFO)?;
+		runesys::telemetry::propagation::accept_trace(&request);
+		check_node::<Self>(&request)?;
 		let request = request.into_inner();
 		let mut conn = self.conn.clone();
 
@@ -114,7 +113,7 @@ impl NodeService for FetchNode {
 								sub: Some(websub),
 								node: Some(Node {
 									address: "http://[::]:50061".to_string(),
-									node_name: SERVICE_INFO.name.to_string(),
+									node_name: FetchNode::INFO.name.to_string(),
 								}),
 							})
 							.await;

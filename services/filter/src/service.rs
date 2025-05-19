@@ -12,7 +12,7 @@ use rssflow_service::{
 use tonic::{Request, Response, Status};
 use tracing::instrument;
 
-use crate::{FilterNode, SERVICE_INFO};
+use crate::FilterNode;
 
 enum Filter {
 	Regex(Regex),
@@ -26,8 +26,8 @@ impl NodeService for FilterNode {
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
-		check_node(&request, &SERVICE_INFO)?;
+		runesys::telemetry::propagation::accept_trace(&request);
+		check_node::<Self>(&request)?;
 		let request = request.into_inner();
 
 		let mut feed: Feed = try_from_request(&request)?;

@@ -9,6 +9,7 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+runesys = { workspace = true, features = ["cache"] }
 rssflow-service = { workspace = true, features = ["atom", "cache"] }
 atom_syndication = { version = "0.12", features = ["with-serde"] } # Replace with feed-rs for broader feed compat
 redis.workspace = true

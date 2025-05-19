@@ -1,19 +1,16 @@
-use std::{array::IntoIter, collections::HashSet, sync::Arc};
+use std::array::IntoIter;
 
-use rssflow_service::{
-	config::config,
-	proto::websub::{
-		SubscribeRequest, SubscribeResponse, WebSubEvent, WebSubRequest,
-		web_sub_service_server::WebSubService,
-	},
-	service::ServiceState,
+use rssflow_service::proto::websub::{
+	SubscribeRequest, SubscribeResponse, WebSubEvent, WebSubRequest,
+	web_sub_service_server::WebSubService,
 };
+use runesys::{Service, config::config};
 use sqlx::PgPool;
 use tonic::{Request, Response, Status};
 use tracing::instrument;
-use uuid::{NoContext, Timestamp, Uuid};
+use uuid::Uuid;
 
-use crate::{SERVICE_INFO, Subscription, WebSubSVC, ws::generate_hmac_secret};
+use crate::{WebSubSVC, ws::generate_hmac_secret};
 
 #[tonic::async_trait]
 impl WebSubService for WebSubSVC {
@@ -22,7 +19,7 @@ impl WebSubService for WebSubSVC {
 		&self,
 		request: Request<SubscribeRequest>,
 	) -> Result<Response<SubscribeResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
+		runesys::telemetry::propagation::accept_trace(&request);
 		let mut conn = request
 			.extensions()
 			.get::<PgPool>()
@@ -37,7 +34,7 @@ impl WebSubService for WebSubSVC {
 		};
 		let Some(node) = request.node else { todo!() };
 
-		let public_url = config(&SERVICE_INFO).public_url.as_ref();
+		let public_url = config(&WebSubSVC::INFO).public_url.as_ref();
 		let Some(public_url) = public_url else {
 			return Err(Status::internal("Public url unset"));
 		};
@@ -98,7 +95,7 @@ impl WebSubService for WebSubSVC {
 		&self,
 		request: Request<SubscribeRequest>,
 	) -> Result<Response<SubscribeResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
+		runesys::telemetry::propagation::accept_trace(&request);
 		let request = request.into_inner();
 		let Some(sub) = request.sub else {
 			return Err(Status::invalid_argument("missing sub"));
@@ -129,7 +126,7 @@ impl WebSubService for WebSubSVC {
 		&self,
 		request: Request<WebSubRequest>,
 	) -> Result<Response<Self::ReceiveStream>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
+		runesys::telemetry::propagation::accept_trace(&request);
 		let stream = tokio_stream::iter([Ok(WebSubEvent { body: Vec::new() })]);
 
 		Ok(stream.into())

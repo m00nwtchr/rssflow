@@ -9,9 +9,12 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+rssflow-service.workspace = true
+runesys.workspace = true
+
 ammonia = "4.1"
 futures.workspace = true
-rssflow-service.workspace = true
+
 tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true

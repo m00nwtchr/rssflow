@@ -9,6 +9,8 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+runesys.workspace = true
+
 futures.workspace = true
 rssflow-service.workspace = true
 tokio.workspace = true

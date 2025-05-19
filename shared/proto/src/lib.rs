@@ -63,12 +63,6 @@ pub mod node {
 	}
 }
 pub mod registry {
-	
-
-	
-
-	
-
 	tonic::include_proto!("rssflow.registry");
 }
 pub mod websub {

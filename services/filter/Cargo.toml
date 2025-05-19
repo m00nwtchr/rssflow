@@ -9,6 +9,8 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+runesys.workspace = true
+
 regex = "1.11.1"
 rssflow-service.workspace = true
 tokio.workspace = true

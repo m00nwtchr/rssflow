@@ -8,15 +8,14 @@ use std::{
 };
 
 use rssflow_service::{
-	NodeExt,
+	NodeExt, proto,
 	proto::registry::{
 		Empty, GetNodeRequest, GetNodeResponse, HeartbeatRequest, ListNodesResponse, Node,
 		RegisterRequest,
 		node_registry_server::{NodeRegistry, NodeRegistryServer},
 	},
-	service::ServiceBuilder,
-	service_info,
 };
+use runesys::Service;
 use tonic::{Request, Response, Status};
 use tonic_health::{ServingStatus, pb::HealthCheckRequest};
 use tracing::{info, instrument};
@@ -35,7 +34,9 @@ struct RSSFlowInner {
 	pub nodes: Mutex<HashMap<String, Node>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Service, Debug, Clone)]
+#[server(NodeRegistryServer)]
+#[fd_set(proto::FILE_DESCRIPTOR_SET)]
 struct RSSFlow(Arc<RSSFlowInner>);
 
 impl Deref for RSSFlow {
@@ -51,7 +52,7 @@ impl Deref for RSSFlow {
 impl NodeRegistry for RSSFlow {
 	#[instrument(skip_all)]
 	async fn register(&self, request: Request<RegisterRequest>) -> Result<Response<Empty>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
+		runesys::telemetry::propagation::accept_trace(&request);
 		let Some(node) = request.into_inner().node else {
 			return Err(Status::invalid_argument("Invalid node argument"));
 		};
@@ -88,7 +89,7 @@ impl NodeRegistry for RSSFlow {
 		&self,
 		request: Request<HeartbeatRequest>,
 	) -> Result<Response<Empty>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
+		runesys::telemetry::propagation::accept_trace(&request);
 		todo!()
 	}
 
@@ -97,7 +98,7 @@ impl NodeRegistry for RSSFlow {
 		&self,
 		request: Request<GetNodeRequest>,
 	) -> Result<Response<GetNodeResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
+		runesys::telemetry::propagation::accept_trace(&request);
 		let name = request.into_inner().name;
 		if name.is_empty() {
 			Err(Status::invalid_argument("Missing name argument"))
@@ -112,28 +113,27 @@ impl NodeRegistry for RSSFlow {
 		&self,
 		request: Request<Empty>,
 	) -> Result<Response<ListNodesResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
+		runesys::telemetry::propagation::accept_trace(&request);
 		Ok(Response::new(ListNodesResponse {
 			nodes: self.nodes.lock().unwrap().values().cloned().collect(),
 		}))
 	}
 }
 
-service_info!("rssflow");
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	rssflow_service::tracing::init(&SERVICE_INFO);
+	runesys::tracing::init(&RSSFlow::INFO);
 
 	let svc = RSSFlow(Arc::new(RSSFlowInner {
 		nodes: Mutex::default(),
 	}));
 
-	let _ = ServiceBuilder::new(SERVICE_INFO)?
+	let app = app(svc.clone());
+	let _ = svc
+		.builder()
 		.with_pg(|pool| async move { sqlx::migrate!().run(&pool).await })
 		.await?
-		.with_service(NodeRegistryServer::new(svc.clone()))
-		.with_http(app(svc).await?)
+		.with_http(app.await?)
 		.run()
 		.await;
 	Ok(())

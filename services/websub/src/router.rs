@@ -11,7 +11,6 @@ use axum::{
 use rssflow_service::{
 	NodeExt,
 	proto::{node::ProcessRequest, websub::WebSubEvent},
-	service::ServiceState,
 };
 use sqlx::{PgPool, types::chrono::Utc};
 use tracing::{info, instrument};

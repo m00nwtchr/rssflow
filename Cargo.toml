@@ -19,6 +19,7 @@ strip = true
 
 [dependencies]
 rssflow-service = { workspace = true, features = ["atom", "db"] }
+runesys.workspace = true
 
 tokio.workspace = true
 tonic.workspace = true
@@ -49,6 +50,8 @@ homepage = "https://github.com/m00nwtchr/rssflow"
 repository = "https://github.com/m00nwtchr/rssflow"
 
 [workspace.dependencies]
+runesys = { git = "https://github.com/m00nwtchr/runesys" }
+
 rssflow-proto = { path = "shared/proto" }
 rssflow-service = { path = "shared/service" }
 prost = "0.13"
@@ -56,14 +59,14 @@ prost-types = "0.13"
 axum = "0.8"
 tonic = "*"
 tonic-health = "*" # Cut
-tokio = { version = "1.44", default-features = false, features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros"] }
 futures = "0.3"
 tracing = "0.1"
 anyhow = "1"
 tower = "0.5"
 tower-http = { version = "0.6", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls", "json"] }
-redis = { version = "0.30", features = ["tokio-comp", "json"] }
+redis = { version = "0.31", features = ["tokio-comp", "json"] }
 url = "2.5"
 chrono = "0.4"
 serde = "1"

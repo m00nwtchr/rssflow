@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use tonic::{Request, Response, Status};
 use tracing::instrument;
 
-use crate::{RetrieveNode, SERVICE_INFO};
+use crate::RetrieveNode;
 
 fn make_cache_key(url: &str, selector: &str) -> String {
 	let mut hasher = Sha256::new();
@@ -69,8 +69,8 @@ impl NodeService for RetrieveNode {
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
-		check_node(&request, &SERVICE_INFO)?;
+		runesys::telemetry::propagation::accept_trace(&request);
+		check_node::<Self>(&request)?;
 		let request = request.into_inner();
 
 		let mut feed: Feed = try_from_request(&request)?;

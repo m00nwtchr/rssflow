@@ -9,10 +9,11 @@ use rssflow_service::{
 	},
 	try_from_request,
 };
+use runesys::Service;
 use tonic::{Request, Response, Status};
 use tracing::instrument;
 
-use crate::{SERVICE_INFO, SanitizeNode};
+use crate::SanitizeNode;
 
 #[tonic::async_trait]
 impl NodeService for SanitizeNode {
@@ -21,8 +22,8 @@ impl NodeService for SanitizeNode {
 		&self,
 		request: Request<ProcessRequest>,
 	) -> Result<Response<ProcessResponse>, Status> {
-		rssflow_service::telemetry::accept_trace(&request);
-		check_node(&request, &SERVICE_INFO)?;
+		runesys::telemetry::propagation::accept_trace(&request);
+		check_node::<Self>(&request)?;
 		let request = request.into_inner();
 
 		let mut feed: Feed = try_from_request(&request)?;

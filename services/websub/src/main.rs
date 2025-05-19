@@ -6,15 +6,11 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
-use rssflow_service::{
-	proto::{
-		registry::Node,
-		websub::{WebSub, web_sub_service_server::WebSubServiceServer},
-	},
-	service::ServiceBuilder,
-	service_info,
+use rssflow_service::proto::{
+	registry::Node,
+	websub::{WebSub, web_sub_service_server::WebSubServiceServer},
 };
-use sqlx::migrate::Migrator;
+use runesys::Service;
 use url::Url;
 use uuid::Uuid;
 
@@ -43,7 +39,10 @@ pub struct WebSubInner {
 	ws: Mutex<HashMap<WebSub, Uuid>>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Service, Debug, Clone, Default)]
+#[service("WebSub")]
+#[server(WebSubServiceServer)]
+#[fd_set(rssflow_service::proto::FILE_DESCRIPTOR_SET)]
 pub struct WebSubSVC(Arc<WebSubInner>);
 
 impl Deref for WebSubSVC {
@@ -54,17 +53,16 @@ impl Deref for WebSubSVC {
 	}
 }
 
-service_info!("WebSub");
-
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	rssflow_service::tracing::init(&SERVICE_INFO);
+async fn main() -> Result<(), runesys::error::Error> {
+	runesys::tracing::init(&WebSubSVC::INFO);
 	let svc = WebSubSVC::default();
-	ServiceBuilder::new(SERVICE_INFO)?
+	let app = app(svc.clone());
+
+	svc.builder()
 		.with_pg(|pool| async move { sqlx::migrate!().run(&pool).await })
 		.await?
-		.with_service(WebSubServiceServer::new(svc.clone()))
-		.with_http(app(svc))
+		.with_http(app)
 		.run()
 		.await
 }

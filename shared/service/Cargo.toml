@@ -9,49 +9,28 @@ repository.workspace = true
 version.workspace = true
 
 [features]
-default = ["tracing", "telemetry", "http", "redis"]
-http = []
-tracing = ["dep:tracing-subscriber", "tower-http/trace"]
-telemetry = ["tracing", "dep:tracing-opentelemetry", "dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:opentelemetry-http", "dep:opentelemetry-semantic-conventions"]
-#http = ["dep:tower-http"]
-redis = ["dep:redis"]
+default = ["tracing", "telemetry", "http"]
+http = ["runesys/http"]
+tracing = ["runesys/tracing"]
+telemetry = ["runesys/telemetry"]
+cache = ["runesys/cache"]
+db = ["runesys/db"]
 
 atom = ["rssflow-proto/atom"]
-cache = ["redis", "dep:serde_json"]
-db = ["dep:sqlx"]
 
 [dependencies]
-tonic-reflection = "0.13"
-tracing-subscriber = { version = "0.3", optional = true, features = ["env-filter"] }
-url = { workspace = true, features = ["serde"] }
-anyhow.workspace = true
-thiserror = "1"
-axum.workspace = true
-figment = { version = "0.10", features = ["toml", "env"] }
-futures.workspace = true
-prost.workspace = true
-prost-types.workspace = true
+runesys.workspace = true
 rssflow-proto.workspace = true
 
 tokio.workspace = true
+
 tonic.workspace = true
 tonic-health.workspace = true
-tracing.workspace = true
+prost-types.workspace = true
+prost.workspace = true
 
-tracing-opentelemetry = { version = "*", optional = true }
-opentelemetry = { version = "*", optional = true, default-features = false, features = ["trace"] }
-opentelemetry_sdk = { version = "*", optional = true, features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "*", optional = true, default-features = false, features = ["trace", "logs", "metrics", "grpc-tonic"] }
-opentelemetry-http = { version = "0.29", optional = true }
-opentelemetry-semantic-conventions = { version = "0.29.0", optional = true }
+anyhow.workspace = true
 
-tower.workspace = true
-tower-http = { workspace = true, default-features = false, features = ["add-extension"] }
-
-sqlx = { version = "0.8", optional = true, features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
-
+figment = { version = "0.10", features = ["toml", "env"] }
 serde = { version = "1", features = ["derive"] }
-
-serde_json = { version = "1", optional = true }
-redis = { workspace = true, optional = true }
-uuid = { version = "1.16.0", features = ["v4", "v5"] }
+url = { workspace = true, features = ["serde"] }

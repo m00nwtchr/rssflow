@@ -1,27 +1,26 @@
 #![warn(clippy::pedantic)]
 
-use rssflow_service::{config::config, service::ServiceBuilder, service_info};
+use rssflow_service::{proto, proto::node::node_service_server::NodeServiceServer};
+use runesys::{Service, config::config};
 
 mod service;
 
+#[derive(Service)]
+#[service("Retrieve")]
+#[server(NodeServiceServer)]
+#[fd_set(proto::FILE_DESCRIPTOR_SET)]
 struct RetrieveNode {
 	conn: redis::aio::MultiplexedConnection,
 }
 
-service_info!("Retrieve");
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	rssflow_service::tracing::init(&SERVICE_INFO);
-	let config = config(&SERVICE_INFO);
+	runesys::tracing::init(&RetrieveNode::INFO);
+	let config = config(&RetrieveNode::INFO);
 
 	let redis = redis::Client::open(config.redis_url.as_str())?;
 	let conn = redis.get_multiplexed_async_connection().await?;
 
 	let node = RetrieveNode { conn };
-	ServiceBuilder::new(SERVICE_INFO)?
-		.with_node_service(node)
-		.await
-		.run()
-		.await
+	Ok(node.builder().run().await?)
 }

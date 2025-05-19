@@ -13,6 +13,9 @@ default = ["sha1"]
 sha1 = ["dep:sha1"]
 
 [dependencies]
+runesys.workspace = true
+rssflow-service = { workspace = true, features = ["db"] }
+
 tokio-stream = "0.1"
 uuid = { version = "1.15", features = ["serde", "v7"] }
 hex = "0.4"
@@ -25,7 +28,6 @@ anyhow.workspace = true
 axum.workspace = true
 prost-types.workspace = true
 reqwest.workspace = true
-rssflow-service = { workspace = true, features = ["db"] }
 tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true
