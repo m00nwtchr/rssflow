@@ -34,7 +34,9 @@ impl WebSubService for WebSubSVC {
 		};
 		let Some(node) = request.node else { todo!() };
 
-		let public_url = config(&WebSubSVC::INFO).public_url.as_ref();
+		let public_url = rssflow_service::config::config::<WebSubSVC>()
+			.public_url
+			.as_ref();
 		let Some(public_url) = public_url else {
 			return Err(Status::internal("Public url unset"));
 		};

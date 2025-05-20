@@ -9,8 +9,6 @@ use rssflow_proto::node::{
 	ProcessRequest, ProcessResponse, node_service_client::NodeServiceClient,
 };
 use runesys::{
-	ServiceInfo,
-	config::ServiceConfig,
 	telemetry,
 	util::{retry_async, try_from_any},
 };
@@ -24,7 +22,9 @@ use tonic::{
 use tonic_health::pb::health_client::HealthClient;
 use url::Url;
 
-// pub mod config;
+use crate::config::ServiceConfig;
+
+pub mod config;
 
 pub trait NodeExt {
 	fn endpoint(&self) -> anyhow::Result<Endpoint>;
@@ -92,7 +92,7 @@ where
 	S::Server: NamedService,
 {
 	fn with_reporter(self) -> Self {
-		let config = runesys::config::config(&S::INFO);
+		let config = config::config::<S>();
 
 		self.with_task(async {
 			tokio::time::sleep(Duration::from_secs(5)).await;

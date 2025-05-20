@@ -60,8 +60,7 @@ async fn main() -> Result<(), runesys::error::Error> {
 	let app = app(svc.clone());
 
 	svc.builder()
-		.with_pg(|pool| async move { sqlx::migrate!().run(&pool).await })
-		.await?
+		.with_pg(|pool| async move { sqlx::migrate!().run(&pool).await })?
 		.with_http(app)
 		.run()
 		.await

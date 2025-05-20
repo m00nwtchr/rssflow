@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-use rssflow_service::{proto, proto::node::node_service_server::NodeServiceServer};
+use rssflow_service::{ServiceExt, proto, proto::node::node_service_server::NodeServiceServer};
 use runesys::Service;
 
 mod service;
@@ -13,5 +13,5 @@ struct FilterNode;
 
 #[tokio::main]
 async fn main() -> Result<(), runesys::error::Error> {
-	FilterNode.builder().run().await
+	FilterNode.builder().with_reporter().run().await
 }

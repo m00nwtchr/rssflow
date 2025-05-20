@@ -131,8 +131,7 @@ async fn main() -> anyhow::Result<()> {
 	let app = app(svc.clone());
 	let _ = svc
 		.builder()
-		.with_pg(|pool| async move { sqlx::migrate!().run(&pool).await })
-		.await?
+		.with_pg(|pool| async move { sqlx::migrate!().run(&pool).await })?
 		.with_http(app.await?)
 		.run()
 		.await;

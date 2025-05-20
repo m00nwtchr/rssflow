@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-use rssflow_service::{proto, proto::node::node_service_server::NodeServiceServer};
+use rssflow_service::{ServiceExt, proto, proto::node::node_service_server::NodeServiceServer};
 use runesys::{Service, config::config};
 
 mod service;
@@ -16,11 +16,11 @@ struct FetchNode {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	runesys::tracing::init(&FetchNode::INFO);
-	let config = config(&FetchNode::INFO);
+	let config = config();
 
 	let redis = redis::Client::open(config.redis_url.as_str())?;
 	let conn = redis.get_multiplexed_async_connection().await?;
 	let node = FetchNode { conn };
 
-	Ok(node.builder().run().await?)
+	Ok(node.builder().with_reporter().run().await?)
 }
