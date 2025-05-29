@@ -88,7 +88,7 @@ pub trait ServiceExt {
 
 impl<S> ServiceExt for runesys::service::ServiceBuilder<S>
 where
-	S: runesys::Service,
+	S: runesys::Service + 'static,
 	S::Server: NamedService,
 {
 	fn with_reporter(self) -> Self {
@@ -98,7 +98,8 @@ where
 			tokio::time::sleep(Duration::from_secs(5)).await;
 			report(S::INFO.name, config).await?;
 
-			Ok(())
+			futures::future::pending::<()>().await;
+			unreachable!()
 		})
 	}
 }
