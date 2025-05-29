@@ -71,11 +71,11 @@ async fn update_flow(
 	// 	.map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
 
 	let mut conn = pool.acquire().await.map_err(internal_error)?;
-	let update: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM flows WHERE name = ?)")
-		.bind(&name)
+	let update = sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM flows WHERE name = $1)", name)
 		.fetch_one(&mut *conn)
 		.await
-		.map_err(internal_error)?;
+		.map_err(internal_error)?
+		.unwrap_or_default();
 
 	// if flow.has_subscriptions() {
 	// 	state
