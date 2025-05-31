@@ -10,6 +10,7 @@ use tracing::instrument;
 mod service;
 
 #[derive(Service)]
+#[service("Sanitize")]
 #[server(NodeServiceServer)]
 #[fd_set(proto::FILE_DESCRIPTOR_SET)]
 struct SanitizeNode {
