@@ -7,7 +7,7 @@ use std::{
 };
 
 use rssflow_service::proto::{
-	registry::Node,
+	node::NodeMeta,
 	websub::{WebSub, web_sub_service_server::WebSubServiceServer},
 };
 use runesys::Service;
@@ -30,7 +30,7 @@ pub async fn websub_check(public_url: &Url) -> anyhow::Result<()> {
 #[derive(Debug, Default, Clone)]
 pub struct Subscription {
 	web_sub: WebSub,
-	nodes: HashSet<Node>,
+	nodes: HashSet<NodeMeta>,
 }
 
 #[derive(Debug, Default)]

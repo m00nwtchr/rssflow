@@ -4,10 +4,12 @@ use atom_syndication::Feed;
 use redis::AsyncCommands;
 use reqwest::{header, header::LINK};
 use rssflow_service::{
-	check_node, interceptor,
+	ServiceExt2, check_node, interceptor,
 	proto::{
-		node::{ProcessRequest, ProcessResponse, node_service_server::NodeService},
-		registry::Node,
+		node::{
+			NodeMeta, PingRequest, PingResponse, ProcessRequest, ProcessResponse,
+			node_service_server::NodeService,
+		},
 		websub::{
 			SubscribeRequest, WebSub, WebSubEvent, web_sub_service_client::WebSubServiceClient,
 		},
@@ -111,10 +113,7 @@ impl NodeService for FetchNode {
 						let _ = client
 							.subscribe(SubscribeRequest {
 								sub: Some(websub),
-								node: Some(Node {
-									address: "http://[::]:50061".to_string(),
-									node_name: FetchNode::INFO.name.to_string(),
-								}),
+								node: Some(Self::node_meta()),
 							})
 							.await;
 					}
@@ -135,5 +134,9 @@ impl NodeService for FetchNode {
 		Ok(Response::new(ProcessResponse {
 			payload: Some(feed.into()),
 		}))
+	}
+
+	async fn ping(&self, request: Request<PingRequest>) -> Result<Response<PingResponse>, Status> {
+		Self::respond_to_ping()
 	}
 }

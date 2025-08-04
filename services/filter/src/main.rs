@@ -13,5 +13,5 @@ struct FilterNode;
 
 #[tokio::main]
 async fn main() -> Result<(), runesys::error::Error> {
-	FilterNode.builder().with_reporter().run().await
+	FilterNode.builder().run().await
 }

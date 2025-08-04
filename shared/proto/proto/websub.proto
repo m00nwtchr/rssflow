@@ -3,7 +3,7 @@ syntax = "proto3";
 package rssflow.websub;
 
 import "feed.proto";
-import "registry.proto";
+import "node.proto";
 
 service WebSubService {
   rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
@@ -14,7 +14,7 @@ service WebSubService {
 
 message SubscribeRequest {
   WebSub sub = 1;
-  rssflow.registry.Node node = 2;
+  rssflow.node.NodeMeta node = 2;
 }
 
 message SubscribeResponse {

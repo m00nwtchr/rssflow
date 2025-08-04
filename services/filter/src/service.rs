@@ -2,10 +2,13 @@ use std::str::FromStr;
 
 use regex::Regex;
 use rssflow_service::{
-	check_node,
+	ServiceExt2, check_node,
 	proto::{
 		feed::Feed,
-		node::{Field, ProcessRequest, ProcessResponse, node_service_server::NodeService},
+		node::{
+			Field, PingRequest, PingResponse, ProcessRequest, ProcessResponse,
+			node_service_server::NodeService,
+		},
 	},
 	try_from_request,
 };
@@ -71,5 +74,9 @@ impl NodeService for FilterNode {
 		Ok(Response::new(ProcessResponse {
 			payload: Some(feed.into()),
 		}))
+	}
+
+	async fn ping(&self, request: Request<PingRequest>) -> Result<Response<PingResponse>, Status> {
+		Self::respond_to_ping()
 	}
 }

@@ -9,7 +9,7 @@ use axum::{
 };
 use rssflow_service::{
 	NodeExt,
-	proto::{node::ProcessRequest, registry::Node},
+	proto::node::{NodeMeta, ProcessRequest},
 };
 use sqlx::PgPool;
 use tracing::{info, instrument};
@@ -34,7 +34,7 @@ async fn run(
 
 	let flow: Flow = serde_json::from_value(content).map_err(internal_error)?;
 
-	let known_nodes: HashMap<String, Node> = state.nodes.lock().unwrap().clone();
+	let known_nodes: HashMap<String, NodeMeta> = state.nodes.lock().unwrap().clone();
 
 	let mut payload = None;
 

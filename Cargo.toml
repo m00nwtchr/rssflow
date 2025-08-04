@@ -35,7 +35,7 @@ serde_json.workspace = true
 anyhow.workspace = true
 atom_syndication = "0.12"
 tonic-health.workspace = true
-
+futures.workspace = true
 
 [workspace]
 members = ["shared/*", "services/*"]

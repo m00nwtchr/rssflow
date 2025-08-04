@@ -4,10 +4,13 @@ use base64::{Engine, engine::general_purpose};
 use futures::{StreamExt, stream};
 use redis::{AsyncCommands, aio::MultiplexedConnection};
 use rssflow_service::{
-	check_node,
+	ServiceExt2, check_node,
 	proto::{
 		feed::{Content, Entry, Feed},
-		node::{ProcessRequest, ProcessResponse, node_service_server::NodeService},
+		node::{
+			PingRequest, PingResponse, ProcessRequest, ProcessResponse,
+			node_service_server::NodeService,
+		},
 	},
 	try_from_request,
 };
@@ -95,5 +98,9 @@ impl NodeService for RetrieveNode {
 		Ok(Response::new(ProcessResponse {
 			payload: Some(feed.into()),
 		}))
+	}
+
+	async fn ping(&self, request: Request<PingRequest>) -> Result<Response<PingResponse>, Status> {
+		Self::respond_to_ping()
 	}
 }

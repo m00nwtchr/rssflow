@@ -28,9 +28,5 @@ impl Default for SanitizeNode {
 #[tokio::main]
 #[instrument]
 async fn main() -> Result<(), runesys::error::Error> {
-	SanitizeNode::default()
-		.builder()
-		.with_reporter()
-		.run()
-		.await
+	SanitizeNode::default().builder().run().await
 }

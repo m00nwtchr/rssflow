@@ -3,10 +3,9 @@
 use std::{error::Error, str::FromStr, time::Duration};
 
 use anyhow::Context;
-use proto::registry::{Node, RegisterRequest, node_registry_client::NodeRegistryClient};
 pub use rssflow_proto as proto;
 use rssflow_proto::node::{
-	ProcessRequest, ProcessResponse, node_service_client::NodeServiceClient,
+	NodeMeta, PingResponse, ProcessRequest, ProcessResponse, node_service_client::NodeServiceClient,
 };
 use runesys::{
 	telemetry,
@@ -43,7 +42,7 @@ pub trait NodeExt {
 	async fn process(&self, req: ProcessRequest) -> anyhow::Result<Response<ProcessResponse>>;
 }
 
-impl NodeExt for Node {
+impl NodeExt for NodeMeta {
 	fn endpoint(&self) -> anyhow::Result<Endpoint> {
 		Endpoint::from_str(&self.address)
 			.with_context(|| format!("create endpoint {}", self.address))
@@ -85,66 +84,97 @@ impl NodeExt for Node {
 pub trait ServiceExt {
 	fn with_reporter(self) -> Self;
 }
+pub trait ServiceExt2 {
+	fn node_meta() -> NodeMeta;
 
-impl<S> ServiceExt for runesys::service::ServiceBuilder<S>
+	fn respond_to_ping() -> Result<Response<PingResponse>, Status>;
+}
+
+impl<T> ServiceExt2 for T
 where
-	S: runesys::Service + 'static,
-	S::Server: NamedService,
+	T: runesys::Service + 'static,
 {
-	fn with_reporter(self) -> Self {
-		let config = config::config::<S>();
+	fn node_meta() -> NodeMeta {
+		let config = config::config::<Self>();
 
-		self.with_task(async {
-			tokio::time::sleep(Duration::from_secs(5)).await;
-			report(S::INFO.name, config).await?;
+		NodeMeta {
+			address: config
+				.service_url
+				.as_ref()
+				.map(Url::to_string)
+				.unwrap_or_default(),
+			node_name: Self::INFO.name.to_string(),
+		}
+	}
 
-			futures::future::pending::<()>().await;
-			unreachable!()
-		})
+	fn respond_to_ping() -> Result<Response<PingResponse>, Status> {
+		Ok(Response::new(PingResponse {
+			node: Some(Self::node_meta()),
+		}))
 	}
 }
 
-pub async fn report(
-	name: &str,
-	config: &ServiceConfig,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-	retry_async(
-		|| async {
-			let endpoint = Endpoint::from_str(config.registry_url.as_str())
-				.with_context(|| format!("create endpoint {}", config.registry_url))?;
-			let channel = endpoint
-				.connect()
-				.await
-				.with_context(|| format!("connect to endpoint {}", config.registry_url))?;
+// impl<S> ServiceExt for runesys::service::ServiceBuilder<S>
+// where
+// 	S: runesys::Service + 'static,
+// 	S::Server: NamedService,
+// {
+// 	fn with_reporter(self) -> Self {
+// 		let config = config::config::<S>();
+//
+// 		self.with_task(async {
+// 			tokio::time::sleep(Duration::from_secs(5)).await;
+// 			// report(S::INFO.name, config).await?;
+//
+// 			S::INFO
+//
+// 			futures::future::pending::<()>().await;
+// 			unreachable!()
+// 		})
+// 	}
+// }
 
-			#[cfg(not(feature = "telemetry"))]
-			let mut client = NodeRegistryClient::new(channel);
-			#[cfg(feature = "telemetry")]
-			let mut client = NodeRegistryClient::with_interceptor(
-				channel,
-				interceptor(telemetry::propagation::send_trace),
-			);
-
-			client
-				.register(RegisterRequest {
-					node: Some(Node {
-						address: config
-							.service_url
-							.as_ref()
-							.map(Url::to_string)
-							.unwrap_or_default(),
-						node_name: name.to_string(),
-					}),
-				})
-				.await?;
-
-			Ok(())
-		},
-		3,
-		Duration::from_secs(2),
-	)
-	.await
-}
+// pub async fn report(
+// 	name: &str,
+// 	config: &ServiceConfig,
+// ) -> Result<(), Box<dyn Error + Send + Sync>> {
+// 	retry_async(
+// 		|| async {
+// 			let endpoint = Endpoint::from_str(config.registry_url.as_str())
+// 				.with_context(|| format!("create endpoint {}", config.registry_url))?;
+// 			let channel = endpoint
+// 				.connect()
+// 				.await
+// 				.with_context(|| format!("connect to endpoint {}", config.registry_url))?;
+//
+// 			#[cfg(not(feature = "telemetry"))]
+// 			let mut client = NodeRegistryClient::new(channel);
+// 			#[cfg(feature = "telemetry")]
+// 			let mut client = NodeRegistryClient::with_interceptor(
+// 				channel,
+// 				interceptor(telemetry::propagation::send_trace),
+// 			);
+//
+// 			client
+// 				.register(RegisterRequest {
+// 					node: Some(Node {
+// 						address: config
+// 							.service_url
+// 							.as_ref()
+// 							.map(Url::to_string)
+// 							.unwrap_or_default(),
+// 						node_name: name.to_string(),
+// 					}),
+// 				})
+// 				.await?;
+//
+// 			Ok(())
+// 		},
+// 		3,
+// 		Duration::from_secs(2),
+// 	)
+// 	.await
+// }
 
 pub fn check_node<S: runesys::Service>(request: &Request<ProcessRequest>) -> Result<(), Status> {
 	if let Some(node) = request.metadata().get("x-node") {

@@ -13,5 +13,5 @@ struct ReplaceNode;
 
 #[tokio::main]
 async fn main() -> Result<(), runesys::error::Error> {
-	ReplaceNode.builder().with_reporter().run().await
+	ReplaceNode.builder().run().await
 }

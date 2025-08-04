@@ -22,5 +22,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let conn = redis.get_multiplexed_async_connection().await?;
 	let node = FetchNode { conn };
 
-	Ok(node.builder().with_reporter().run().await?)
+	Ok(node.builder().run().await?)
 }

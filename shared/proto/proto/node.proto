@@ -7,6 +7,8 @@ import "google/protobuf/struct.proto";
 
 service NodeService {
   rpc Process(ProcessRequest) returns (ProcessResponse);
+
+  rpc Ping(PingRequest) returns (PingResponse);
 }
 
 message ProcessRequest {
@@ -23,4 +25,16 @@ enum Field {
   Summary = 1;
   Content = 2;
   Title = 3;
+}
+
+// Metadata for a node service
+message NodeMeta {
+  string address = 1;
+  string node_name = 3;
+}
+
+message PingRequest {}
+
+message PingResponse {
+  NodeMeta node = 1;
 }

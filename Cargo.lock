@@ -2240,6 +2240,7 @@ dependencies = [
  "anyhow",
  "atom_syndication",
  "axum",
+ "futures",
  "prost-types",
  "rssflow-service",
  "runesys",
