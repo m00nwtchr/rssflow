@@ -64,9 +64,16 @@ async fn main() -> anyhow::Result<()> {
 		let svc = svc.clone();
 		async move {
 			loop {
-				for mut addr in "rssflow-headless".to_socket_addrs().unwrap_or_default() {
-					addr.set_port(50051);
+				let resolve = "rssflow-headless:50051".to_socket_addrs();
+				let Ok(addrs) = resolve else {
+					tracing::error!("resolve failed: {resolve:?}");
+					tokio::time::sleep(Duration::from_secs(5)).await;
+					continue;
+				};
+
+				for addr in addrs {
 					let url = format!("http://{addr}");
+					tracing::debug!("trying to connect to {}", url);
 
 					let Ok(endpoint) =
 						Endpoint::from_str(&url).with_context(|| format!("create endpoint {url}"))
