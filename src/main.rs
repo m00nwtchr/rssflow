@@ -105,7 +105,6 @@ async fn main() -> anyhow::Result<()> {
 							runesys::error::Error::Config("poison lock".to_string())
 						})?;
 
-						tracing::info!("node {} is alive", node.node_name);
 						nodes.insert(node.node_name.clone(), node);
 					}
 				}
