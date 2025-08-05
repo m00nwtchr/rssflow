@@ -1,19 +1,19 @@
-name: Test
-on: [push, pull_request]
+name: "Test"
+on:
+  pull_request:
+  push:
 jobs:
-  all:
-    runs-on: ${{ matrix.os }}
-    env:
-      RUSTFLAGS: --deny warnings
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        rust: [stable, beta]
+  tests:
+    runs-on: ubuntu-latest
     steps:
-      - uses: hecrj/setup-rust-action@v2
-        with:
-          rust-version: ${{ matrix.rust }}
-      - uses: actions/checkout@master
-      - name: Run tests
-        run: |
-          cargo test --verbose --workspace --all-features
+    - uses: actions/checkout@v3
+    - uses: cachix/install-nix-action@v18
+    - uses: cachix/cachix-action@v12
+      with:
+        name: m00nwtchr
+        extraPullNames: devenv
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - run: nix profile install github:cachix/devenv/latest
+      name: Install devenv.sh
+    - run: devenv shell echo ok
+    - run: devenv ci
