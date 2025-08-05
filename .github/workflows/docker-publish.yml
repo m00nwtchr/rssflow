@@ -37,11 +37,11 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      #      - name: Set up Cachix (optional but recommended)
-      #        uses: cachix/cachix-action@v14
-      #        with:
-      #          name: your-cachix-name
-      #          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - name: Set up Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: m00nwtchr
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
