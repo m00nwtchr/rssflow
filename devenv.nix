@@ -4,15 +4,20 @@
   config,
   inputs,
   ...
-}: {
+}:
+{
   # https://devenv.sh/basics/
   env.GREET = "devenv";
 
   cachix.enable = true;
-  cachix.pull = ["m00nwtchr"];
+  cachix.pull = [ "m00nwtchr" ];
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [git cargo-nextest cargo-audit];
+  packages = with pkgs; [
+    git
+    cargo-nextest
+    cargo-audit
+  ];
 
   # https://devenv.sh/languages/
   languages.rust = {
@@ -23,7 +28,19 @@
   };
 
   # https://devenv.sh/services/
-  # services.postgres.enable = true;
+  services.postgres = {
+    enable = true;
+    initialDatabases = [
+      {
+        name = "rssflow";
+        user = "rssflow";
+      }
+    ];
+  };
+  services.redis = {
+    enable = true;
+    package = pkgs.valkey;
+  };
 
   enterShell = ''
     git --version

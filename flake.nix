@@ -1,10 +1,18 @@
 {
   description = "A devShell example";
+  nixConfig = {
+    extra-substituters = [
+      "https://m00nwtchr.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "m00nwtchr.cachix.org-1:obUPSTOPq11tzLSzMCHBq/A2PTeIv9qIZW1IxCeb8Yw="
+    ];
+  };
   inputs = {
     crane.url = "github:ipetkov/crane";
     flake-utils.url = "github:numtide/flake-utils";
-    fenix.url = "github:nix-community/fenix";
-    fenix.inputs.nixpkgs.follows = "nixpkgs";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
 
     advisory-db = {
       url = "github:rustsec/advisory-db";
@@ -16,33 +24,17 @@
     nixpkgs,
     crane,
     flake-utils,
-    fenix,
-    advisory-db,
+    rust-overlay,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [fenix.overlays.default];
+        overlays = [rust-overlay.overlays.default];
       };
       inherit (pkgs) lib;
 
-      rustToolchain = pkgs.fenix.combine (with pkgs.fenix; [
-        stable.cargo
-        stable.clippy
-        stable.rustc
-        latest.rustfmt
-      ]);
-
-      craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustToolchain);
-      craneDev = craneLib.overrideToolchain (p:
-        p.fenix.combine (with p.fenix.stable; [
-          rustToolchain
-          rust-analyzer
-          rust-src
-        ]));
-
-      craneNightly = craneLib.overrideToolchain pkgs.fenix.minimal.toolchain;
+      craneLib = (crane.mkLib pkgs).overrideToolchain (p: p.rust-bin.stable.latest.minimal);
 
       root = ./.;
       src = lib.fileset.toSource {
@@ -142,56 +134,7 @@
         };
 
       dockerImages = lib.mapAttrs mkImage packages;
-
-      mkChecks = craneLib: let
-        cargoArtifacts = mkCargoArtifacts craneLib;
-      in {
-        # Run clippy
-        workspace-clippy = craneLib.cargoClippy (commonArgs
-          // {
-            inherit cargoArtifacts;
-            cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-          });
-
-        # Check formatting
-        workspace-fmt = craneLib.cargoFmt {
-          inherit src;
-        };
-
-        # Audit dependencies
-        workspace-audit = craneLib.cargoAudit {
-          inherit src advisory-db;
-        };
-
-        # Audit licenses
-        workspace-deny = craneLib.cargoDeny {
-          inherit src;
-        };
-
-        # Run tests with cargo-nextest
-        # Consider setting `doCheck = false` on other crate derivations
-        # if you do not want the tests to run twice
-        workspace-nextest = craneLib.cargoNextest (commonArgs
-          // {
-            inherit cargoArtifacts;
-            partitions = 1;
-            partitionType = "count";
-            cargoNextestPartitionsExtraArgs = "--no-tests=pass";
-          });
-      };
     in {
-      checks =
-        {
-          workspace-udeps = craneNightly.mkCargoDerivation (commonArgs
-            // {
-              cargoArtifacts = mkCargoArtifacts craneNightly;
-              pnameSuffix = "-udeps";
-              buildPhaseCargoCommand = "cargo udeps";
-              nativeBuildInputs = [pkgs.cargo-udeps];
-            });
-        }
-        // mkChecks craneLib
-        // packages;
       packages =
         {
           default = packages.rssflow;
@@ -210,18 +153,6 @@
         // packages;
       apps.default = flake-utils.lib.mkApp {
         drv = packages.rssflow;
-      };
-
-      devShells.default = craneDev.devShell {
-        checks = (mkChecks craneDev) // mkPackages craneDev;
-
-        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = "${pkgs.llvmPackages.clangUseLLVM}/bin/clang";
-        CARGO_ENCODED_RUSTFLAGS = "-Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold";
-
-        packages = with pkgs; [
-          grpcurl
-          sqlx-cli
-        ];
       };
     });
 }

@@ -1,7 +1,6 @@
 /target
 *.db*
 .env
-/.direnv
 
 # Devenv
 .devenv*

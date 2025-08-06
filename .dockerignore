@@ -1,7 +1,0 @@
-/target
-/deploy.sh
-/Dockerfile
-rustfmt.toml
-*.db*
-.env
-.dockerignore
