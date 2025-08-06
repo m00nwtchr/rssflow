@@ -12,24 +12,20 @@
   cachix.pull = ["m00nwtchr"];
 
   # https://devenv.sh/packages/
-  packages = [pkgs.git pkgs.cargo-nextest];
+  packages = with pkgs; [git cargo-nextest cargo-audit];
 
   # https://devenv.sh/languages/
-  languages.rust.enable = true;
-
-  # https://devenv.sh/processes/
-  # processes.cargo-watch.exec = "cargo-watch";
+  languages.rust = {
+    enable = true;
+    channel = "stable";
+    version = "latest";
+    mold.enable = true;
+  };
 
   # https://devenv.sh/services/
   # services.postgres.enable = true;
 
-  # https://devenv.sh/scripts/
-  scripts.hello.exec = ''
-    echo hello from $GREET
-  '';
-
   enterShell = ''
-    hello
     git --version
   '';
 
@@ -42,12 +38,12 @@
   # https://devenv.sh/tests/
   enterTest = ''
     echo "Running tests"
-    git --version | grep --color=auto "${pkgs.git.version}"
     cargo nextest run --verbose --workspace --all-features
   '';
 
   # https://devenv.sh/git-hooks/
   git-hooks.hooks = {
+    rustfmt.enable = true;
     clippy.enable = true;
   };
 
