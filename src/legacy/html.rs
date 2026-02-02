@@ -10,10 +10,10 @@ use parking_lot::Mutex;
 use reqwest::header;
 use scraper::Selector;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DurationSeconds};
+use serde_with::{DurationSeconds, serde_as};
 use url::Url;
 
-use super::node::{Data, DataKind, NodeTrait, IO};
+use super::node::{Data, DataKind, IO, NodeTrait};
 use crate::subscriber::websub::WebSub;
 
 fn mutex_now() -> Mutex<Instant> {

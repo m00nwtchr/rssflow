@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
-use super::node::{Data, DataKind, NodeTrait, IO};
+use super::node::{Data, DataKind, IO, NodeTrait};
 
 /// Filters out already processed entries.
 #[derive(Serialize, Deserialize, Debug)]

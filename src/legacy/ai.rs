@@ -6,7 +6,7 @@ use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::node::{Data, DataKind, NodeTrait, IO};
+use super::node::{Data, DataKind, IO, NodeTrait};
 
 /// Generates a response using an AI assistant.
 #[derive(Serialize, Deserialize, Debug)]

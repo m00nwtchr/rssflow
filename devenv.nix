@@ -5,35 +5,52 @@
   inputs,
   ...
 }:
-{
-  # https://devenv.sh/basics/
-  env.GREET = "devenv";
+let
+  name = "rssflow";
 
+  root = ./services;
+
+  entries = builtins.readDir root;
+
+  serviceNames = lib.filter (
+    name: entries.${name} == "directory" && builtins.pathExists (root + "/${name}/Cargo.toml")
+  ) (builtins.attrNames entries);
+in
+{
   cachix.enable = true;
   cachix.pull = [ "m00nwtchr" ];
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [
-    git
-    cargo-nextest
-    cargo-audit
-  ];
+  packages =
+    with pkgs;
+    [
+    ]
+    ++ lib.optionals (!config.container.isBuilding) [
+      git
+      cargo-nextest
+      sqlx-cli
+      watchexec
+    ];
 
   # https://devenv.sh/languages/
   languages.rust = {
     enable = true;
-    channel = "stable";
-    version = "latest";
     mold.enable = true;
   };
 
-  # https://devenv.sh/services/
+  env.PGDATABASE = name;
+  env.DATABASE_URL = "postgresql:///${config.env.PGDATABASE}?host=${config.env.PGHOST}";
+  processes = {
+    rssflow.exec = "watchexec -r -e rs -- cargo run -p rssflow";
+  }
+  // (lib.genAttrs serviceNames (name: {
+    exec = "watchexec -r -e rs -- cargo run -p rssflow-${name}";
+  }));
   services.postgres = {
     enable = true;
     initialDatabases = [
       {
-        name = "rssflow";
-        user = "rssflow";
+        name = config.env.PGDATABASE;
       }
     ];
   };
@@ -42,27 +59,33 @@
     package = pkgs.valkey;
   };
 
-  enterShell = ''
-    git --version
-  '';
+  treefmt = {
+    enable = true;
+    config.programs = {
+      nixfmt.enable = true;
+      rustfmt.enable = true;
+    };
+  };
 
-  # https://devenv.sh/tasks/
-  # tasks = {
-  #   "myproj:setup".exec = "mytool build";
-  #   "devenv:enterShell".after = [ "myproj:setup" ];
-  # };
-
-  # https://devenv.sh/tests/
-  enterTest = ''
-    echo "Running tests"
-    cargo nextest run --verbose --workspace --all-features
-  '';
-
-  # https://devenv.sh/git-hooks/
   git-hooks.hooks = {
-    rustfmt.enable = true;
+    treefmt.enable = true;
     clippy.enable = true;
   };
 
+  tasks = {
+    # "${name}:tests" = {
+    #   after = ["devenv:enterTest"];
+    #   exec = "cargo nextest run";
+    # };
+  };
+
+  # outputs = let
+  #   cargoNix = inputs.crate2nix.tools.${pkgs.stdenv.system}.appliedCargoNix {
+  #     inherit name;
+  #     src = ./.;
+  #   };
+  # in {
+  #   rssflow = cargoNix.rootCrate.build;
+  # };
   # See full reference at https://devenv.sh/reference/options/
 }

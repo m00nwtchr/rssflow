@@ -5,9 +5,9 @@ use async_trait::async_trait;
 use pipe::{MyInputPipe, MyOutputPipe};
 use tokio::sync::Mutex;
 use wasmtime::{Config, Engine, Linker, Module, Store, TypedFunc};
-use wasmtime_wasi::{preview1, preview1::WasiP1Ctx, WasiCtxBuilder};
+use wasmtime_wasi::{WasiCtxBuilder, preview1, preview1::WasiP1Ctx};
 
-use super::node::{collect_inputs, Data, DataKind, NodeTrait, IO};
+use super::node::{Data, DataKind, IO, NodeTrait, collect_inputs};
 
 /// Run a WASI module as a [Node]
 pub struct Wasm {

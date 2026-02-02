@@ -2385,7 +2385,7 @@ dependencies = [
 [[package]]
 name = "runesys"
 version = "0.1.0"
-source = "git+https://github.com/m00nwtchr/runesys#d2118a0ef91f9840835e592812c097657d1c4c0d"
+source = "git+https://github.com/m00nwtchr/runesys#05a300800eaf78ce24f594fb3f98ee49516157fb"
 dependencies = [
  "axum",
  "figment",
@@ -2418,7 +2418,7 @@ dependencies = [
 [[package]]
 name = "runesys_derive"
 version = "0.1.0"
-source = "git+https://github.com/m00nwtchr/runesys#d2118a0ef91f9840835e592812c097657d1c4c0d"
+source = "git+https://github.com/m00nwtchr/runesys#05a300800eaf78ce24f594fb3f98ee49516157fb"
 dependencies = [
  "proc-macro2",
  "quote",
