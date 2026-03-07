@@ -56,8 +56,8 @@ rssflow-service = { path = "shared/service" }
 prost = "0.13"
 prost-types = "0.13"
 axum = "0.8"
-tonic = "*"
-tonic-health = "*" # Cut
+tonic = "0.13"
+tonic-health = "0.13" # Cut
 tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros"] }
 futures = "0.3"
 tracing = "0.1"
@@ -65,7 +65,7 @@ anyhow = "1"
 tower = "0.5"
 tower-http = { version = "0.6", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "rustls-tls", "json"] }
-redis = { version = "0.31", features = ["tokio-comp", "json"] }
+redis = { version = "1.0", features = ["tokio-comp", "json"] }
 url = "2.5"
 chrono = "0.4"
 serde = "1"

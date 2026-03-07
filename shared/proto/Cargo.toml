@@ -22,4 +22,4 @@ prost-types.workspace = true
 tonic.workspace = true
 
 [build-dependencies]
-tonic-build = "*"
+tonic-build = "0.13"
