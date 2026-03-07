@@ -34,4 +34,3 @@ anyhow.workspace = true
 figment = { version = "0.10", features = ["toml", "env"] }
 serde = { version = "1", features = ["derive"] }
 url = { workspace = true, features = ["serde"] }
-futures = "0.3.31"

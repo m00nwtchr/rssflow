@@ -1,6 +1,12 @@
 #![warn(clippy::pedantic)]
 
-use std::{error::Error, str::FromStr, time::Duration};
+use std::{
+	error::Error,
+	fs::File,
+	io::{BufReader, Read},
+	str::FromStr,
+	time::Duration,
+};
 
 use anyhow::Context;
 pub use rssflow_proto as proto;
@@ -202,4 +208,44 @@ pub fn interceptor<T>(mutator: impl Fn(&mut T)) -> impl FnMut(T) -> Result<T, St
 		mutator(&mut value);
 		Ok(value)
 	}
+}
+
+pub fn load_tls(prefix: &str) -> (Option<(Vec<u8>, Vec<u8>)>, Option<Vec<u8>>) {
+	let root_cert_path = std::env::var(format!("{prefix}_ROOT_CERT")).ok();
+	let cert_path = std::env::var(format!("{prefix}_CERT")).ok();
+	let key_path = std::env::var(format!("{prefix}_CERT_KEY")).ok();
+
+	let root_cert_vec = if let Some(root_cert_path) = root_cert_path {
+		let root_cert_file = File::open(root_cert_path).expect("cannot open private cert file");
+		let mut root_cert_vec = Vec::new();
+		BufReader::new(root_cert_file)
+			.read_to_end(&mut root_cert_vec)
+			.expect("Unable to read ROOT cert file");
+
+		Some(root_cert_vec)
+	} else {
+		None
+	};
+
+	let client_vecs = if let Some(cert_path) = cert_path
+		&& let Some(key_path) = key_path
+	{
+		let cert_file = File::open(cert_path).expect("cannot open private cert file");
+		let mut client_cert_vec = Vec::new();
+		BufReader::new(cert_file)
+			.read_to_end(&mut client_cert_vec)
+			.expect("Unable to read client cert file");
+
+		let key_file = File::open(key_path).expect("cannot open private key file");
+		let mut client_key_vec = Vec::new();
+		BufReader::new(key_file)
+			.read_to_end(&mut client_key_vec)
+			.expect("Unable to read client key file");
+
+		Some((client_cert_vec, client_key_vec))
+	} else {
+		None
+	};
+
+	(client_vecs, root_cert_vec)
 }

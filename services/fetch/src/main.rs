@@ -18,7 +18,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	runesys::tracing::init(&FetchNode::INFO);
 	let config = config();
 
-	let redis = redis::Client::open(config.redis_url.as_str())?;
+	let cert_vecs = rssflow_service::load_tls("REDIS");
+	let client_tls = if let Some((client_cert, client_key)) = cert_vecs.0 {
+		Some(ClientTlsConfig {
+			client_cert,
+			client_key,
+		})
+	} else {
+		None
+	};
+
+	let redis = redis::Client::build_with_tls(
+		config.redis_url.as_str(),
+		TlsCertificates {
+			client_tls,
+			root_cert: cert_vecs.1,
+		},
+	)?;
 	let conn = redis.get_multiplexed_async_connection().await?;
 	let node = FetchNode { conn };
 
